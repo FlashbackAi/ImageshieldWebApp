@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the template, which holds only placeholders. Without this a fresh clone
+# has no .env.example, and the "copy .env.example to .env.local" error message that
+# BACKEND_URL and FUNNEL_SECRET both print names a file that isn't there.
+!.env.example
 
 # vercel
 .vercel

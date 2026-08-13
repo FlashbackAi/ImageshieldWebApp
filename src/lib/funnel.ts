@@ -8,11 +8,10 @@ export const FUNNEL_STEPS = [
   "landing",
   "quiz",
   "quiz-questions",
-  "phone",
-  "otp",
   "calculating",
+  "details",
+  "otp",
   "score",
-  "open-app",
 ] as const;
 
 export type FunnelStep = (typeof FUNNEL_STEPS)[number];
@@ -22,11 +21,14 @@ export const STEP_PATHS: Record<FunnelStep, string> = {
   /* "Take the Quiz" lands on the intro, which hands off to the questions. */
   quiz: "/quiz",
   "quiz-questions": "/quiz/questions",
-  phone: "/phone",
-  otp: "/otp",
+  /* The loader runs before we have a phone number, so it can only animate — the
+     real score comes back from /api/otp/verify once the details are in. */
   calculating: "/calculating",
+  /* Full name, email, phone. Submitting it sends the code. */
+  details: "/details",
+  otp: "/otp",
+  /* Score, QR and the store links: one screen, fed by /api/score. */
   score: "/score",
-  "open-app": "/open-app",
 };
 
 export function nextStep(step: FunnelStep): FunnelStep | null {

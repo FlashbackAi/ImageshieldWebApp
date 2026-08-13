@@ -14,6 +14,10 @@ export class BackendError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /** Raw response body. Kept because status alone isn't enough: /verify-otp
+     *  answers 400 for a wrong code, which is a normal outcome to relay to the
+     *  user, not a fault to log. */
+    readonly body: string = "",
   ) {
     super(message);
     this.name = "BackendError";
@@ -42,6 +46,7 @@ export async function backendFetch<T>(
     throw new BackendError(
       `${init.method ?? "GET"} ${path} failed`,
       res.status,
+      await res.text().catch(() => ""),
     );
   }
 
