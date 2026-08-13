@@ -7,6 +7,7 @@
 export const FUNNEL_STEPS = [
   "landing",
   "quiz",
+  "quiz-questions",
   "phone",
   "otp",
   "calculating",
@@ -18,7 +19,9 @@ export type FunnelStep = (typeof FUNNEL_STEPS)[number];
 
 export const STEP_PATHS: Record<FunnelStep, string> = {
   landing: "/",
+  /* "Take the Quiz" lands on the intro, which hands off to the questions. */
   quiz: "/quiz",
+  "quiz-questions": "/quiz/questions",
   phone: "/phone",
   otp: "/otp",
   calculating: "/calculating",

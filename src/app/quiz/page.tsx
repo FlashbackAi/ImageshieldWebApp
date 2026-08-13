@@ -1,59 +1,71 @@
-"use client";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { SiteHeader } from "@/components/landing/SiteHeader";
+import { ShieldMark } from "@/components/ShieldMark";
+import { nextPath, STEP_PATHS } from "@/lib/funnel";
 
-import { Button } from "@/components/Button";
-import { Screen } from "@/components/Screen";
-import { nextPath } from "@/lib/funnel";
-import { saveAnswer, useFunnel } from "@/lib/funnel-state";
-import { useRouter } from "next/navigation";
-
-const PLACEHOLDER_OPTIONS = ["Barely any", "A few", "A lot", "No idea"];
+export const metadata: Metadata = {
+  title: "ImageShield — Likeness Health Quiz",
+  description:
+    "Our free online assessment will determine your risk of likeness theft online. It only takes a few minutes.",
+};
 
 /**
- * Placeholder quiz step. The real questions and screens come from the designs —
- * what matters here is the pattern: answer is written to sessionStorage the moment
- * it's picked (not on submit), and the next route comes from the funnel config
- * rather than a hardcoded push.
+ * Quiz intro — where "Take the Quiz" lands.
+ *
+ * Still the marketing site rather than the funnel proper: it keeps the site header
+ * and the full-width canvas, and only the column underneath is funnel-shaped. So
+ * this screen builds its own shell instead of reaching for `<Screen>`, which is
+ * phone-first and caps at 30rem.
+ *
+ * Measured off the 1920×1280 design: a 536px column centred on the page, sitting
+ * 203px below the 65px header, everything inside it flush left.
  */
-export default function QuizPage() {
-  const router = useRouter();
-  // Reads straight from the store, so a reloaded tab comes back already answered.
-  const selected = useFunnel().answers["photos-online"] ?? null;
+export default function QuizIntroPage() {
+  // `quiz` is never the last step, so the fallback here is unreachable — it exists
+  // only so the target stays derived from the funnel order rather than hardcoded.
+  const next = nextPath("quiz") ?? STEP_PATHS.landing;
 
   return (
-    <Screen
-      footer={
-        <Button
-          disabled={!selected}
-          onClick={() => {
-            const path = nextPath("quiz");
-            if (path) router.push(path);
-          }}
-        >
-          Continue
-        </Button>
-      }
-    >
-      <div className="flex flex-col gap-6 py-10">
-        <h1 className="text-2xl font-bold text-balance">
-          How many photos of you are online?
-        </h1>
+    <main className="relative min-h-[100dvh] bg-canvas-tint">
+      <SiteHeader />
 
-        <div className="flex flex-col gap-3">
-          {PLACEHOLDER_OPTIONS.map((option) => (
-            <button
-              key={option}
-              onClick={() => saveAnswer("photos-online", option)}
-              className={`rounded-2xl border px-5 py-4 text-left text-base transition-colors ${
-                selected === option
-                  ? "border-brand bg-brand-soft/25 font-semibold"
-                  : "border-line bg-canvas"
-              }`}
-            >
-              {option}
-            </button>
-          ))}
+      <div className="mx-auto w-full max-w-[576px] px-5 pt-[65px]">
+        <div className="pt-16 pb-24 sm:pt-24 lg:pt-[203px]">
+          {/* The badge carries its own glow: a slightly larger disc of the same
+              purple, blurred out to a haze the design only barely shows. */}
+          <div className="relative w-24">
+            <div
+              aria-hidden
+              className="absolute -inset-1.5 rounded-full bg-brand-bright opacity-[0.072] blur-[40px]"
+            />
+            <div className="relative flex size-24 items-center justify-center rounded-full bg-brand-bright/10">
+              <ShieldMark className="w-[37px]" />
+            </div>
+          </div>
+
+          {/* No `text-balance`: the design runs this to the full 536px measure, and
+              balancing pulls the last line up into a narrower, off-design block. */}
+          <h1 className="mt-7 text-2xl leading-9 font-bold text-ink-soft">
+            Our proprietary Likeness Health Quiz will determine your risk of
+            likeness theft and abuse.
+          </h1>
+
+          <p className="mt-[18px] text-base leading-5 text-ink-soft">
+            Our free online assessment will determine your risk of likeness theft
+            online. It only takes a few minutes.
+          </p>
+
+          {/* Nothing to record yet, so this is a plain navigation rather than the
+              funnel's <Button> — and a pill, which <Button> is not. */}
+          <Link
+            href={next}
+            className="mt-[50px] flex h-14 w-full items-center justify-center rounded-full bg-brand text-base font-semibold text-ink-inverse transition-colors hover:bg-cta"
+          >
+            Continue
+          </Link>
         </div>
       </div>
-    </Screen>
+    </main>
   );
 }

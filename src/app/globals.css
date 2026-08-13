@@ -13,11 +13,15 @@
 
   /* Surfaces */
   --color-canvas: #ffffff;
+  /* The barely-violet white the quiz screens sit on — not pure `canvas`. */
+  --color-canvas-tint: #fbfaff;
   --color-surface: #f1f2f6;
   --color-surface-dark: #1a1a2e;
 
   /* Ink */
   --color-ink: #111111;
+  /* Softened black. The quiz designs set body copy and headings in this, not `ink`. */
+  --color-ink-soft: #333333;
   --color-ink-muted: #666666;
   --color-ink-faint: #888888;
   --color-ink-inverse: #ffffff;
