@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Mirrored from the mobile app (src/styles/ + screen usage) so the
+ * funnel and the app read as one product. When designs land, change values HERE —
+ * components should never hardcode a hex or a px size.
+ */
+@theme {
+  /* Brand */
+  --color-brand: #380e99;
+  --color-brand-bright: #7f48ff;
+  --color-brand-soft: #c6adff;
+
+  /* Surfaces */
+  --color-canvas: #ffffff;
+  --color-surface: #f1f2f6;
+  --color-surface-dark: #1a1a2e;
+
+  /* Ink */
+  --color-ink: #111111;
+  --color-ink-muted: #666666;
+  --color-ink-faint: #888888;
+  --color-ink-inverse: #ffffff;
+
+  /* Lines */
+  --color-line: #dedede;
+  --color-line-soft: #e5e7eb;
+
+  /* Status */
+  --color-danger: #ff3b30;
+  --color-warning: #ffb020;
+  --color-success: #39beb7;
+
+  /*
+   * Marketing site. The landing page runs on a black canvas rather than the
+   * funnel's white one, so it needs its own ink ramp — `ink-muted` and friends
+   * are tuned for light surfaces and go invisible here.
+   */
+  --color-night: #000000;
+  --color-cta: #521eb3;
+  /* The nav bar is its own purple — lighter than `brand`, darker than `cta`. */
+  --color-navbar: #3e1787;
+  --color-ink-onnav: #e0e6eb;
+  --color-accent-soft: #e9d5ff;
+  --color-accent-bright: #d8b4fe;
+  --color-star: #facc15;
+  --color-ink-onnight: #fbfaff;
+  --color-ink-onnight-muted: #e6e6e6;
+  --color-ink-onnight-faint: #d9d9d9;
+  --color-ink-onnight-dim: #cccccc;
+
+  /* Type — Plus Jakarta Sans, same face as the app */
+  --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  /* …and Inter for the marketing site, which is what the V1 design is drawn in. */
+  --font-site: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Funnel screens are phone-sized. This is the content column everywhere. */
+  --spacing-gutter: 1.25rem;
+  --container-funnel: 30rem;
+
+  /* Minimum comfortable tap target on a phone */
+  --spacing-tap: 2.75rem;
+}
+
+@layer base {
+  html {
+    /* iOS Safari: the toolbar eats `vh`. Every full-height screen uses dvh. */
+    height: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /* Funnel is a fixed flow — sideways scroll is always a bug here. */
+    overflow-x: hidden;
+  }
+
+  /* Safari zooms the whole page when a focused input is under 16px. */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1rem);
+  }
+
+  button {
+    min-height: var(--spacing-tap);
+  }
+
+  /* Respect users who asked for less motion — the funnel is animation-heavy. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
