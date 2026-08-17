@@ -42,9 +42,14 @@
    */
   --color-night: #000000;
   --color-cta: #521eb3;
-  /* The nav bar is its own purple — lighter than `brand`, darker than `cta`. */
+  /* The funnel's nav bar is its own purple — lighter than `brand`, darker than
+   * `cta`. The landing hero runs V3's glass bar instead; this is what every screen
+   * behind the quiz still sits under. */
   --color-navbar: #3e1787;
   --color-ink-onnav: #e0e6eb;
+  /* The hero's scrim over the still — a near-black with a green cast, not pure
+   * `night`, which reads flat against the photo's blues. */
+  --color-scrim: #1a1c1d;
   --color-accent-soft: #e9d5ff;
   --color-accent-bright: #d8b4fe;
   --color-star: #facc15;
