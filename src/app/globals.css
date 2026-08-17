@@ -10,6 +10,9 @@
   --color-brand: #380e99;
   --color-brand-bright: #7f48ff;
   --color-brand-soft: #c6adff;
+  /* Brand ink on a white surface — the secondary button's label. Deeper than
+   * `brand`, which is a fill colour and reads muddy as small bold text. */
+  --color-brand-ink: #25007a;
 
   /* Surfaces */
   --color-canvas: #ffffff;
@@ -24,16 +27,44 @@
   --color-ink-soft: #333333;
   --color-ink-muted: #666666;
   --color-ink-faint: #888888;
+  /* Form placeholders. A step lighter than `ink-faint`, which is already spoken for
+   * as real (if quiet) copy — a placeholder has to read as "not filled in yet". */
+  --color-ink-placeholder: #999999;
+  /* The result screen's body copy: a warmed grey-violet, not a neutral one. */
+  --color-ink-body: #494454;
   --color-ink-inverse: #ffffff;
 
   /* Lines */
   --color-line: #dedede;
   --color-line-soft: #e5e7eb;
+  /* Neutral where `line-soft` is faintly blue — the factor cards sit on white and
+   * the blue cast is visible at a 339px width. */
+  --color-line-card: #e2e2e4;
+  /* Unfilled part of the quiz progress bar. A hair warmer than `line-soft`, which
+   * is the card border sitting right underneath it. */
+  --color-track: #e6e6e8;
 
   /* Status */
   --color-danger: #ff3b30;
   --color-warning: #ffb020;
   --color-success: #39beb7;
+
+  /*
+   * Likeness Health Score bands, as flat ink — the risk word in the headline. The
+   * backend owns the thresholds (>=80 low, >=51 moderate, else high) and returns
+   * the band; these are only how each one is drawn.
+   *
+   * The gauge's ARC does not use these: it's a gradient per band, and those stops
+   * live in `lib/score.ts` where they're copied from the app's ScoreGauge.
+   *
+   * `moderate` and `low` are the app's own score-legend colours, so a lead who
+   * installs the app doesn't see their band change colour. `high` is the web
+   * design's #E44625 rather than the app's #FF3B5C — the export for this screen
+   * specifies it, and it's the one this screen was drawn with.
+   */
+  --color-risk-high: #e44625;
+  --color-risk-moderate: var(--color-warning);
+  --color-risk-low: var(--color-success);
 
   /*
    * Marketing site. The landing page runs on a black canvas rather than the

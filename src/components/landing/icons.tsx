@@ -114,3 +114,12 @@ export function Close({ className }: IconProps) {
     </SocialIcon>
   );
 }
+
+/** Back control on the quiz screens. */
+export function ChevronLeft({ className }: IconProps) {
+  return (
+    <SocialIcon className={className}>
+      <path d="m15 18-6-6 6-6" />
+    </SocialIcon>
+  );
+}

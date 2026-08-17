@@ -31,6 +31,15 @@ export const STEP_PATHS: Record<FunnelStep, string> = {
   score: "/score",
 };
 
+/**
+ * Steps that move on by themselves.
+ *
+ * They are legitimate forward destinations but never back ones: landing on the
+ * loader again just runs its timer and pushes the user straight back where they
+ * came from, so a "Back" button pointing at one does nothing but flash.
+ */
+const AUTO_ADVANCING: ReadonlySet<FunnelStep> = new Set(["calculating"]);
+
 export function nextStep(step: FunnelStep): FunnelStep | null {
   return FUNNEL_STEPS[FUNNEL_STEPS.indexOf(step) + 1] ?? null;
 }
@@ -43,6 +52,13 @@ export function prevStep(step: FunnelStep): FunnelStep | null {
 export function nextPath(step: FunnelStep): string | null {
   const next = nextStep(step);
   return next ? STEP_PATHS[next] : null;
+}
+
+/** Where a "Back" control on `step` should go — the nearest step the user can act on. */
+export function backPath(step: FunnelStep): string | null {
+  let prev = prevStep(step);
+  while (prev && AUTO_ADVANCING.has(prev)) prev = prevStep(prev);
+  return prev ? STEP_PATHS[prev] : null;
 }
 
 /** 0–1, for the progress bar at the top of every screen. */

@@ -40,7 +40,7 @@ export default function QuizIntroPage() {
               className="absolute -inset-1.5 rounded-full bg-brand-bright opacity-[0.072] blur-[40px]"
             />
             <div className="relative flex size-24 items-center justify-center rounded-full bg-brand-bright/10">
-              <ShieldMark className="w-[37px]" />
+              <ShieldMark className="w-[37px] text-ink-soft" />
             </div>
           </div>
 

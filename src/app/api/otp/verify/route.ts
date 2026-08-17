@@ -1,4 +1,5 @@
 import { backendFetch, BackendError } from "@/lib/api";
+import { splitName } from "@/lib/contact";
 import { handoffFor } from "@/lib/handoff";
 import { validateAnswers } from "@/lib/quiz";
 import { allow } from "@/lib/rate-limit";
@@ -12,6 +13,13 @@ type QuizResponse = {
   activeReportsCount: number;
 };
 
+type CheckUser = {
+  registered: boolean;
+  selfieUploaded: boolean;
+  profileCompleted: boolean;
+  consentSigned: boolean;
+};
+
 /**
  * POST /api/otp/verify — { code, answers }
  *
@@ -19,14 +27,28 @@ type QuizResponse = {
  * request so there's no window where a half-verified session can write: the phone
  * comes out of the signed cookie, never out of this body.
  *
- * Two writes, both to endpoints the app already uses:
- *   /api/likeness-health-quiz  → scores the answers and stores them on the mobile
- *                                user record, which is what the app reads back.
- *   /updateUserDetails         → the lead's name and email on the web `users` row.
+ * The calls, and their order, are the app's own onboarding sequence (OTPScreen →
+ * ProfileSetupScreen), against the same endpoints:
  *
- * Note what is NOT called: /update-profile. It would save the same name and email
- * but also set profileCompleted, and both SplashScreen and OTPScreen in the app read
- * that as "onboarding finished" — a web lead would then skip profile setup entirely.
+ *   /verify-otp                → marks the record `registered`, same as the app.
+ *   /check-user                → what the app asks next. Nothing here branches on
+ *                                it, but it is what fires the backend's `check_user`
+ *                                activity log, so web sign-ins show up in the same
+ *                                analytics as app ones.
+ *   /api/likeness-health-quiz  → scores the answers onto the mobile user record,
+ *                                which is what the app reads back.
+ *   /update-profile            → the lead's name and email.
+ *
+ * `/update-profile` also sets `profileCompleted: true`, and the app treats that as
+ * "onboarding finished" (SplashScreen line 114, OTPScreen line 152). So a lead who
+ * came through the web and later installs the app lands on the Dashboard without
+ * being asked for a selfie, and has to add one from Settings. That is a known and
+ * accepted trade for capturing the lead against the record the app actually reads —
+ * the alternative was a mobile-side change to also require `selfieUploaded`.
+ *
+ * An earlier version posted to `/updateUserDetails`, which does not exist on the
+ * backend; the call failed every time inside the catch below, so no lead's name or
+ * email was ever stored.
  */
 export async function POST(request: Request) {
   const session = await readSession();
@@ -82,12 +104,27 @@ export async function POST(request: Request) {
   // if a write fails the user can still land on the result screen and retry.
   await markVerified(session);
 
+  /* Analytics only, and the app tolerates it failing too (OTPScreen wraps its own
+     follow-up call in a catch), so a blip here must not cost the user their score. */
+  let account: CheckUser | undefined;
+  try {
+    account = await backendFetch<CheckUser>("/check-user", {
+      method: "POST",
+      body: JSON.stringify({ phone: session.phone }),
+    });
+  } catch (error) {
+    console.error("check-user failed", (error as Error).message);
+  }
+
   let quiz: QuizResponse;
   try {
     quiz = await backendFetch<QuizResponse>("/api/likeness-health-quiz", {
       method: "POST",
+      // Bare, no `+`, exactly as the app's quizSync posts it. The backend puts the
+      // `+` back either way; sending the same bytes keeps the two clients from
+      // drifting apart if that ever stops being true.
       body: JSON.stringify({
-        userPhone: session.phone,
+        userPhone: session.phone.replace(/\+/g, ""),
         answers: parsedAnswers.answers,
       }),
     });
@@ -103,14 +140,21 @@ export async function POST(request: Request) {
   // score is already saved and the user is waiting on it.
   let leadSaved = true;
   try {
-    await backendFetch("/updateUserDetails", {
+    const { firstName, lastName } = splitName(session.fullName);
+    await backendFetch("/update-profile", {
       method: "POST",
+      /* Exactly the fields ProfileSetupScreen sends, and no more. The handler also
+         destructures `employer` and `school`, so leaving them off spreads them in
+         as undefined over the existing record — whatever that does to an app user
+         who had filled them in, it already does when they edit their name in the
+         app (PersonalInfoScreen omits them too). Matching the app's payload keeps
+         the web from being the odd one out; it does not fix that. */
       body: JSON.stringify({
-        user_phone_number: session.phone,
-        fullName: session.fullName,
+        phone: session.phone,
+        firstName,
+        lastName,
         email: session.email,
-        leadSource: "web-quiz",
-        webQuizCompletedAt: new Date().toISOString(),
+        fullName: session.fullName,
       }),
     });
   } catch (error) {
@@ -128,5 +172,14 @@ export async function POST(request: Request) {
     activeReportsCount: quiz.activeReportsCount,
     handoff: handoffFor(session.phone),
     leadSaved,
+    /* Whether this number had already got as far as a selfie in the app before the
+       funnel touched it. `registered` is no use for this — /verify-otp has just set
+       it — and `profileCompleted` is about to be set by /update-profile below, so
+       the selfie is the one part of onboarding the web never does.
+
+       The result screen doesn't read it yet: it's here so "Download the app" can
+       become "Open the app" without another round trip, and so it's visible to
+       whoever is counting how many leads are genuinely new. */
+    returningAppUser: Boolean(account?.selfieUploaded),
   });
 }

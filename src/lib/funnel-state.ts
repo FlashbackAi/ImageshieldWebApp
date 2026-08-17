@@ -19,7 +19,9 @@ import type { FunnelStep } from "./funnel";
 const KEY = "imageshield.funnel.v1";
 
 export type FunnelState = {
-  answers: Record<string, string>;
+  /** A list for the multi-select questions, a bare string for the rest — the same
+   *  shape `validateAnswers` expects, so this object POSTs straight through. */
+  answers: Record<string, string | string[]>;
   phone?: string;
   lastStep?: FunnelStep;
 };
@@ -62,9 +64,33 @@ export function writeFunnel(patch: Partial<FunnelState>): FunnelState {
   return next;
 }
 
-export function saveAnswer(questionId: string, value: string): FunnelState {
+export function saveAnswer(
+  questionId: string,
+  value: string | string[],
+): FunnelState {
   const { answers } = readFunnel();
   return writeFunnel({ answers: { ...answers, [questionId]: value } });
+}
+
+/**
+ * Adds or removes one option of a multi-select answer.
+ *
+ * Order follows the question's option list rather than the order they were tapped,
+ * so re-picking the same set always produces the same array — otherwise a back-and-
+ * forth would keep rewriting sessionStorage with a reshuffled list.
+ */
+export function toggleAnswer(
+  questionId: string,
+  option: string,
+  options: readonly string[],
+): FunnelState {
+  const current = readFunnel().answers[questionId];
+  const picked = new Set(Array.isArray(current) ? current : []);
+  if (!picked.delete(option)) picked.add(option);
+  return saveAnswer(
+    questionId,
+    options.filter((o) => picked.has(o)),
+  );
 }
 
 export function clearFunnel(): void {

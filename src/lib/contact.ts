@@ -33,6 +33,27 @@ export function normalizePhone(raw: string): string {
   return cleaned.startsWith("00") ? `+${cleaned.slice(2)}` : cleaned;
 }
 
+/**
+ * Splits the one "Full Name" field into the parts `/update-profile` stores.
+ *
+ * The app collects these as two inputs (ProfileSetupScreen) and the record has a
+ * column for each, so the web's single field has to be broken up the same way or
+ * the app's profile screen comes back with a blank surname. First word is the
+ * given name, everything after it the family name — wrong for some names, but it
+ * matches what the app would have written for the same typing, and `fullName` is
+ * stored verbatim alongside so nothing is actually lost.
+ */
+export function splitName(fullName: string): {
+  firstName: string;
+  lastName: string;
+} {
+  const parts = fullName.trim().split(/\s+/);
+  return {
+    firstName: parts[0] ?? "",
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
 export function validateContact(
   raw: unknown,
 ): { ok: true; contact: Contact } | { ok: false; error: string } {

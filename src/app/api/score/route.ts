@@ -1,50 +1,33 @@
-import { backendFetch, BackendError } from "@/lib/api";
-import { handoffFor } from "@/lib/handoff";
+import { loadScore } from "@/lib/score-record";
 import { readVerifiedSession } from "@/lib/session";
 
-type StoredQuiz = {
-  success: boolean;
-  data: {
-    score: number;
-    riskLevel: string;
-    breakdown: unknown[];
-    activeReportsCount?: number;
-    completedAt?: string;
-  };
-};
+const STATUS = {
+  unverified: [401, "Not verified"],
+  missing: [404, "No score on record"],
+  unavailable: [502, "Couldn't load your score"],
+} as const;
 
 /**
- * GET /api/score — the result screen's own source of truth.
+ * GET /api/score — the stored score, for anything that can't read it on the server.
  *
- * The verify response already carried the score, but a reloaded or re-shared tab has
- * lost it. Reading it back by phone (out of the cookie, not the query string — the
- * score is not something one visitor should be able to look up for another) means
- * the result screen survives a refresh, and shows a score that has since moved
- * because the app found active reports.
+ * The result screen renders on the server and calls `loadScore` directly, so this is
+ * the client-side door onto the same thing: a tab that wants to refresh its score
+ * without a navigation. Both go through `loadScore`, so neither can drift into a
+ * different idea of whose score this is.
  */
 export async function GET() {
-  const session = await readVerifiedSession();
-  if (!session) {
-    return Response.json({ error: "Not verified" }, { status: 401 });
+  const loaded = await loadScore();
+  if (!loaded.ok) {
+    const [status, error] = STATUS[loaded.reason];
+    return Response.json({ error }, { status });
   }
 
-  try {
-    const stored = await backendFetch<StoredQuiz>(
-      `/api/likeness-health-quiz?userPhone=${encodeURIComponent(session.phone)}`,
-    );
-    return Response.json({
-      ...stored.data,
-      fullName: session.fullName,
-      phone: session.phone,
-      handoff: handoffFor(session.phone),
-    });
-  } catch (error) {
-    if (error instanceof BackendError && error.status === 404) {
-      // Verified, but the answers never landed — the funnel should send them back
-      // to submit rather than show an empty result.
-      return Response.json({ error: "No score on record" }, { status: 404 });
-    }
-    console.error("score fetch failed", (error as Error).message);
-    return Response.json({ error: "Couldn't load your score" }, { status: 502 });
-  }
+  // The phone isn't part of the record — it's session state — but the response has
+  // always carried it, and it's the number the app should be signed into.
+  const session = await readVerifiedSession();
+  return Response.json({
+    ...loaded.record,
+    phone: session?.phone,
+    handoff: loaded.handoff,
+  });
 }
