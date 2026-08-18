@@ -1,6 +1,6 @@
 import { backendFetch, BackendError } from "@/lib/api";
 import { validateContact } from "@/lib/contact";
-import { allow, clientIp } from "@/lib/rate-limit";
+import { allowOtpSend } from "@/lib/rate-limit";
 import { startSession } from "@/lib/session";
 
 /**
@@ -24,20 +24,9 @@ export async function POST(request: Request) {
   }
   const { contact } = parsed;
 
-  // Two limits doing different jobs: the per-phone one stops a retry loop
-  // (accidental or otherwise) from texting one person repeatedly, the per-IP one
-  // stops one visitor from working through a list of numbers.
-  if (!allow(`otp:phone:${contact.phone}`, 3, 10 * 60 * 1000)) {
-    return Response.json(
-      { error: "Too many codes requested. Try again in a few minutes." },
-      { status: 429 },
-    );
-  }
-  if (!allow(`otp:ip:${clientIp(request)}`, 10, 60 * 60 * 1000)) {
-    return Response.json(
-      { error: "Too many attempts from this network. Try again later." },
-      { status: 429 },
-    );
+  const allowed = allowOtpSend(request, contact.phone);
+  if (!allowed.ok) {
+    return Response.json({ error: allowed.error }, { status: allowed.status });
   }
 
   try {

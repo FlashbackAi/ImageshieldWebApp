@@ -1,5 +1,5 @@
 import { backendFetch, BackendError } from "@/lib/api";
-import { allow, clientIp } from "@/lib/rate-limit";
+import { allowOtpSend } from "@/lib/rate-limit";
 import { readSession } from "@/lib/session";
 
 /**
@@ -10,8 +10,8 @@ import { readSession } from "@/lib/session";
  * and the number comes out of the pending session cookie rather than the request, so
  * this can't be turned into "text a code to any number I name".
  *
- * The same per-phone and per-IP limits apply, and against the same counters as
- * `/api/otp/start` — otherwise resending would be a second, uncapped budget of
+ * The send policy is `allowOtpSend`, shared with `/api/otp/start` and counted against
+ * the same windows — otherwise resending would be a second, uncapped budget of
  * messages to the same handset.
  */
 export async function POST(request: Request) {
@@ -23,17 +23,9 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!allow(`otp:phone:${session.phone}`, 3, 10 * 60 * 1000)) {
-    return Response.json(
-      { error: "Too many codes requested. Try again in a few minutes." },
-      { status: 429 },
-    );
-  }
-  if (!allow(`otp:ip:${clientIp(request)}`, 10, 60 * 60 * 1000)) {
-    return Response.json(
-      { error: "Too many attempts from this network. Try again later." },
-      { status: 429 },
-    );
+  const allowed = allowOtpSend(request, session.phone);
+  if (!allowed.ok) {
+    return Response.json({ error: allowed.error }, { status: allowed.status });
   }
 
   try {
