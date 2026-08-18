@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState, type ReactNode } from "react";
+import { ChevronDown } from "@/components/landing/icons";
 import {
   CALLING_CODES,
   composePhone,
@@ -56,8 +57,10 @@ export function DetailsForm() {
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
-  const callingCode =
-    CALLING_CODES.find((c) => c.label === country)?.code ?? DEFAULT_CALLING_CODE;
+  /* One lookup feeds both sides of the picker: the code goes into the composed
+     number, the flag onto the display drawn over the <select>. */
+  const selected = CALLING_CODES.find((c) => c.label === country);
+  const callingCode = selected?.code ?? DEFAULT_CALLING_CODE;
 
   useEffect(() => {
     /* Read the store directly rather than through `useFunnel`, for the same reason
@@ -165,23 +168,49 @@ export function DetailsForm() {
             Country calling code
           </label>
           {/*
+           * Still a native <select>, because the OS picker is the kindest thing on a
+           * phone: it scrolls, it takes type-ahead, and it needs no outside-tap or
+           * arrow-key handling of ours. The one thing it cannot do is show a different
+           * string open and closed, and the two pull opposite ways — the open list is
+           * only readable with country names on it, while the closed control has to
+           * fit inside the phone field next to the digits, where a name will not go.
+           * Dial codes alone was the wrong half to keep: a bare column of "+353, +27,
+           * +33" asks the reader to know the codes already.
+           *
+           * So the <select> carries the names and is laid transparent over a display
+           * of our own, which shows the flag and the code and takes no taps of its
+           * own. `peer` passes the real control's focus and hover through to it, so
+           * the thing that looks like the control still reacts like one.
+           *
            * Keyed by country, not by calling code: the US and Canada both send +1,
            * and two <option>s sharing a value both come up selected — the browser
            * then shows whichever is last, so picking the US displayed Canada.
            */}
-          <select
-            id={`${ids}-code`}
-            name="country"
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            className="absolute top-1/2 right-3 h-10 -translate-y-1/2 rounded-[10px] bg-surface px-2 text-sm text-ink-soft focus:outline-none"
-          >
-            {CALLING_CODES.map((option) => (
-              <option key={option.label} value={option.label}>
-                {option.flag} +{option.code}
-              </option>
-            ))}
-          </select>
+          <div className="absolute top-1/2 right-2.5 h-11 -translate-y-1/2">
+            <select
+              id={`${ids}-code`}
+              name="country"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              /* `text-base`, invisible though it is: iOS zooms the page in on a
+                 focused control drawn below 16px. */
+              className="peer absolute inset-0 size-full cursor-pointer appearance-none text-base opacity-0"
+            >
+              {CALLING_CODES.map((option) => (
+                <option key={option.label} value={option.label}>
+                  {option.flag} {option.label} (+{option.code})
+                </option>
+              ))}
+            </select>
+            <span
+              aria-hidden
+              className="pointer-events-none flex h-full items-center gap-1.5 rounded-[10px] border-[1.6px] border-line-soft bg-surface pr-1.5 pl-2.5 text-sm font-semibold text-ink-soft transition-colors peer-hover:border-line peer-focus-visible:border-brand"
+            >
+              <span className="text-base leading-none">{selected?.flag}</span>
+              +{callingCode}
+              <ChevronDown className="size-4 text-ink-faint" />
+            </span>
+          </div>
         </Field>
       </div>
 

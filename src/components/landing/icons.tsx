@@ -123,3 +123,34 @@ export function ChevronLeft({ className }: IconProps) {
     </SocialIcon>
   );
 }
+
+/** The country picker's own affordance, drawn because its <select> is transparent. */
+export function ChevronDown({ className }: IconProps) {
+  return (
+    <SocialIcon className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </SocialIcon>
+  );
+}
+
+/**
+ * Tick for the multi-select checkbox — the export's own geometry, so the box is
+ * drawn at its native 20px rather than scaled from a 24 grid. The 1.75 stroke is
+ * heavier than `SocialIcon`'s 2px reads at this size, where 2px is a hairline.
+ */
+export function Check({ className }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={className}
+    >
+      <path d="M14.664 6.498 8.248 12.914 5.331 9.998" />
+    </svg>
+  );
+}

@@ -19,7 +19,9 @@ export const metadata: Metadata = {
  * phone-first and caps at 30rem.
  *
  * Measured off the 1920×1280 design: a 536px column centred on the page, sitting
- * 203px below the 65px header, everything inside it flush left.
+ * 199px below the 65px header, everything inside it flush left. That puts the badge
+ * at y=264, the heading's cap line at 398, and the button at 612 — the export's own
+ * numbers, which the column reproduces to the pixel at `lg` and up.
  */
 export default function QuizIntroPage() {
   // `quiz` is never the last step, so the fallback here is unreachable — it exists
@@ -31,7 +33,7 @@ export default function QuizIntroPage() {
       <SiteHeader />
 
       <div className="mx-auto w-full max-w-[576px] px-5 pt-[65px]">
-        <div className="pt-16 pb-24 sm:pt-24 lg:pt-[203px]">
+        <div className="pt-16 pb-24 sm:pt-24 lg:pt-[199px]">
           {/* The badge carries its own glow: a slightly larger disc of the same
               purple, blurred out to a haze the design only barely shows. */}
           <div className="relative w-24">
@@ -51,7 +53,13 @@ export default function QuizIntroPage() {
             likeness theft and abuse.
           </h1>
 
-          <p className="mt-[18px] text-base leading-5 text-ink-soft">
+          {/* 16/24, not 16/20: the export steps these two lines 24px apart, and the
+              4px it adds back is what lands the button on the design's y=612.
+
+              80% black rather than the heading's flat #333333 — the export sets
+              these two blocks differently, and over the tint the two land a step
+              apart. */}
+          <p className="mt-[18px] text-base leading-6 text-black/80">
             Our free online assessment will determine your risk of likeness theft
             online. It only takes a few minutes.
           </p>

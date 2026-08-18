@@ -24,7 +24,9 @@ export const QUIZ_QUESTIONS: readonly QuizQuestion[] = [
   {
     id: "age",
     label: "LIKENESS HEALTH QUIZ (1/7)",
-    question: "What's your age?",
+    // Typographic apostrophe: it's what the design draws, and it's only ever
+    // displayed — the backend matches on `id` and the option strings, not this.
+    question: "What’s your age?",
     options: ["Under 21", "21-30", "31-50", "Over 50"],
   },
   {

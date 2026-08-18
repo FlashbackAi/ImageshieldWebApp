@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { Check } from "@/components/landing/icons";
 import { nextPath, STEP_PATHS } from "@/lib/funnel";
 import { saveAnswer, toggleAnswer, useFunnel } from "@/lib/funnel-state";
 import { isAsked, QUIZ_QUESTIONS, type QuizAnswers } from "@/lib/quiz";
@@ -59,16 +60,23 @@ export function QuizFlow() {
       </div>
 
       <div className="mx-auto w-full max-w-[600px] px-5 pb-24">
-        <p className="mt-10 text-[12px] leading-none font-bold tracking-[4px] text-ink-muted uppercase lg:mt-[70px]">
+        <p className="mt-10 text-[15px] leading-4 font-bold tracking-[4px] text-ink-muted uppercase lg:mt-[70px]">
           Likeness Health Quiz ({step}/{asked.length})
         </p>
 
-        <h1 className="mt-[16px] text-2xl leading-9 font-bold text-ink">
+        {/* 24/36 Bold in flat black — the funnel's usual heading size and weight,
+            in the same black the option labels underneath use. */}
+        <h1 className="mt-[16px] text-[24px] leading-9 font-bold text-black">
           {question.question}
         </h1>
 
+        {/* 14/21 regular in black at 45% — a qualifier on the question rather
+            than copy in its own right. The translucent black is the design's
+            own value, and it sits a touch lighter than `ink-faint` would. */}
         {question.hint ? (
-          <p className="mt-1 text-base text-ink-muted">{question.hint}</p>
+          <p className="mt-[9px] text-[14px] leading-[21px] text-black/45">
+            {question.hint}
+          </p>
         ) : null}
 
         <div className="mt-[30px] flex flex-col gap-3">
@@ -80,12 +88,40 @@ export function QuizFlow() {
                 type="button"
                 onClick={() => pick(option)}
                 aria-pressed={question.multi ? on : undefined}
-                className={`flex h-14 items-center rounded-[14px] border-[1.6px] px-[18px] text-left text-[15px] transition-colors ${
+                /* Picked rows keep the white fill and the regular weight the design
+                   draws — only the border and the label take the brand colour. A
+                   tinted fill reads as a disabled row next to the plain ones. The
+                   resting label is the export's flat black, not `ink`: these rows
+                   are the one place the design sets the label off the body grey. */
+                /* The 1.61px outline is an inset shadow, not a border, for two
+                   reasons the export makes plain: a border snaps to whole device
+                   pixels (1.5px on a 2x screen, 2px on a 1x one — never 1.61),
+                   and CSS measures padding inside a border where Figma measures
+                   it from the frame edge and lays the stroke over it. The shadow
+                   antialiases to its true width and overlays the padding box, so
+                   the checkbox lands at 17.6px from the edge, as drawn. */
+                className={`flex h-[53.7px] items-center gap-3 rounded-[14px] bg-canvas px-[17.6px] text-left text-[15px] leading-[22.5px] transition-[color,box-shadow] ${
                   on
-                    ? "border-brand bg-brand-soft/20 font-semibold text-ink"
-                    : "border-line-soft bg-canvas text-ink hover:border-brand-soft"
+                    ? "text-brand shadow-[inset_0_0_0_1.61px_var(--color-brand)]"
+                    : "text-black shadow-[inset_0_0_0_1.61px_var(--color-line-soft)] hover:shadow-[inset_0_0_0_1.61px_var(--color-brand-soft)]"
                 }`}
               >
+                {/* "Select all that apply" is the only thing separating a multi
+                    question from a single one, so the box is what carries it —
+                    single-answer rows advance on tap and never show a checked
+                    state to draw. 20px on a 4px radius, per the design. */}
+                {question.multi ? (
+                  <span
+                    aria-hidden
+                    className={`flex size-5 shrink-0 items-center justify-center rounded-[4px] transition-[background-color,box-shadow] ${
+                      on
+                        ? "bg-brand text-ink-inverse"
+                        : "shadow-[inset_0_0_0_1.61px_var(--color-line-strong)]"
+                    }`}
+                  >
+                    {on ? <Check className="size-5" /> : null}
+                  </span>
+                ) : null}
                 {option}
               </button>
             );
@@ -93,8 +129,9 @@ export function QuizFlow() {
         </div>
 
         {/* Single-answer questions advance on tap, so only the "select all that
-            apply" ones need a way to say they're done. The design doesn't draw
-            this screen; the button borrows the intro's CTA. */}
+            apply" ones need a way to say they're done. The design insets it 24px
+            either side of the option column rather than running it to the full
+            560 — it's the one control on the screen that isn't a row. */}
         {question.multi ? (
           <button
             type="button"
@@ -104,7 +141,7 @@ export function QuizFlow() {
                 ? go(step + 1)
                 : router.push(nextPath("quiz-questions") ?? STEP_PATHS.landing)
             }
-            className="mt-8 flex h-14 w-full items-center justify-center rounded-full bg-brand text-base font-semibold text-ink-inverse transition-colors hover:bg-cta disabled:opacity-40"
+            className="mt-8 mx-auto flex h-14 w-full max-w-[512px] items-center justify-center rounded-full bg-brand text-base font-semibold text-ink-inverse transition-colors hover:bg-cta disabled:opacity-40"
           >
             Continue
           </button>
