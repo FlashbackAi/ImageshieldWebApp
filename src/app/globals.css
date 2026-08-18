@@ -40,6 +40,10 @@
   /* Neutral where `line-soft` is faintly blue — the factor cards sit on white and
    * the blue cast is visible at a 339px width. */
   --color-line-card: #e2e2e4;
+  /* The multi-select checkbox's resting outline. A step darker than `line-soft`,
+   * which is the option card's own border — at `line-soft` the empty box washes
+   * out against the card it sits inside. */
+  --color-line-strong: #d1d5dc;
   /* Unfilled part of the quiz progress bar. A hair warmer than `line-soft`, which
    * is the card border sitting right underneath it. */
   --color-track: #e6e6e8;
@@ -78,9 +82,6 @@
    * behind the quiz still sits under. */
   --color-navbar: #3e1787;
   --color-ink-onnav: #e0e6eb;
-  /* The hero's scrim over the still — a near-black with a green cast, not pure
-   * `night`, which reads flat against the photo's blues. */
-  --color-scrim: #1a1c1d;
   --color-accent-soft: #e9d5ff;
   --color-accent-bright: #d8b4fe;
   --color-star: #facc15;
@@ -88,6 +89,23 @@
   --color-ink-onnight-muted: #e6e6e6;
   --color-ink-onnight-faint: #d9d9d9;
   --color-ink-onnight-dim: #cccccc;
+
+  /*
+   * Pages carried over from the old imageshield.com — the FAQ so far. That site is
+   * a light one, and it paints every piece of copy on it in a single violet rather
+   * than the funnel's neutral ink ramp. Its page ground is `canvas-tint` to the
+   * hex and its body ink is `navbar`, so those two are aliased rather than
+   * repeated; the rest are the old site's own.
+   */
+  --color-ink-legacy: var(--color-navbar);
+  /* Rules between accordion rows, and the footer's top edge. A shade bluer than
+   * `line-soft`, which is the funnel's. */
+  --color-line-legacy: #e0e6eb;
+  /* The footer's ground. Laid over the page at 50%, the way the old site has it. */
+  --color-surface-legacy: #f3f5f7;
+  /* Its buttons lift on a blue shadow rather than a neutral one. */
+  --shadow-legacy: 0 4px 24px -4px rgb(0 128 255 / 0.15);
+  --shadow-legacy-hover: 0 8px 32px -4px rgb(0 128 255 / 0.25);
 
   /* Type — Plus Jakarta Sans, same face as the app */
   --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif;
@@ -127,6 +145,24 @@
 
   button {
     min-height: var(--spacing-tap);
+  }
+
+  /*
+   * Accepting a browser suggestion — a saved name or number, or the SMS code chip
+   * on the OTP row — leaves the field in `:-webkit-autofill`, which Chrome and
+   * Safari repaint in their own yellow. That colour comes from the UA sheet and
+   * outranks the field's `bg-canvas`; `background-color` cannot take it back, so
+   * the fix is an inset shadow wide enough to fill the box. The text and caret
+   * colours are set alongside it because the same state overrides those too.
+   */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  select:-webkit-autofill,
+  textarea:-webkit-autofill {
+    box-shadow: inset 0 0 0 100px var(--color-canvas);
+    -webkit-text-fill-color: var(--color-ink);
+    caret-color: var(--color-ink);
   }
 
   /* Respect users who asked for less motion — the funnel is animation-heavy. */

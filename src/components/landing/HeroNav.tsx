@@ -9,10 +9,16 @@ import { Close, Menu } from "./icons";
 /**
  * V3's floating glass bar, over the landing hero only.
  *
- * Measured off the 1449-wide design: 20px down, 38px in from either edge, 79px tall
+ * Measured off the 1449-wide design: 20px down, 35px in from either edge, 79px tall
  * with a 16px radius, filled `ink-soft` at 20% over a 10px backdrop blur. Inside,
  * the logo is 24px from the left edge and the link row ends 32px from the right,
- * 32px between links.
+ * 32px between links. (The bar sat at 38/32 until the design squared it up to 35 on
+ * both sides, which is what makes it 1379 wide at the design width.)
+ *
+ * The 390-wide frame draws the same bar smaller — 18px down, 20px in, 61px tall, the
+ * logo at 29px — and holds the same 24px left inset. It draws no links and no
+ * disclosure at all, just the wordmark; the button below is ours, since dropping the
+ * six links on a phone would leave the page with no navigation whatsoever.
  *
  * This is deliberately not `SiteHeader`. The glass reads as glass because there's a
  * photograph behind it — every funnel screen is a near-white canvas, where white on
@@ -25,9 +31,9 @@ export function HeroNav() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="absolute inset-x-0 top-0 z-20 pt-3 lg:pt-5">
-      <div className="mx-auto max-w-[1449px] px-4 sm:px-6 lg:px-[38px]">
-        <div className="flex h-16 items-center justify-between rounded-2xl bg-ink-soft/20 pr-2 pl-4 backdrop-blur-[10px] lg:h-[79px] lg:pr-8 lg:pl-6">
+    <header className="absolute inset-x-0 top-0 z-20 pt-[18px] lg:pt-5">
+      <div className="mx-auto max-w-[1449px] px-5 lg:px-[35px]">
+        <div className="flex h-[61px] items-center justify-between rounded-2xl bg-ink-soft/20 pr-2 pl-6 backdrop-blur-[10px] lg:h-[79px] lg:pr-8">
           <Link href="/" aria-label="ImageShield home" className="shrink-0">
             <Image
               src="/media/logo-wordmark.svg"
@@ -35,7 +41,7 @@ export function HeroNav() {
               width={178}
               height={40}
               priority
-              className="h-8 w-auto lg:h-10"
+              className="h-[29px] w-auto lg:h-10"
             />
           </Link>
 

@@ -5,7 +5,14 @@
  * keyed by phone number, so the handoff is simply "install the app and sign in
  * with the number you just verified". The phone rides along in the link only to
  * prefill that login field.
+ *
+ * The store links are the landing page's `STORE_LINKS`, not env vars of their own:
+ * there is one App Store listing and one Play listing, and while the two were
+ * configured separately this screen kept pointing at placeholders the landing page
+ * had already outgrown.
  */
+import { STORE_LINKS } from "./site-nav";
+
 export type Handoff = {
   /** Opens the app when it's installed, the listing when it isn't. */
   deepLink: string;
@@ -21,10 +28,7 @@ export function handoffFor(phone: string): Handoff {
 
   return {
     deepLink: deepLink.toString(),
-    appStoreUrl:
-      process.env.NEXT_PUBLIC_APP_STORE_URL ?? "https://apps.apple.com/",
-    playStoreUrl:
-      process.env.NEXT_PUBLIC_PLAY_STORE_URL ??
-      "https://play.google.com/store/apps/details?id=com.imageshield",
+    appStoreUrl: STORE_LINKS.appStore,
+    playStoreUrl: STORE_LINKS.googlePlay,
   };
 }
