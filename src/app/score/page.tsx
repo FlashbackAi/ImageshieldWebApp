@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/landing/SiteHeader";
+import { ResumeSave } from "@/components/score/ResumeSave";
 import { ScoreResult } from "@/components/score/ScoreResult";
 import { STEP_PATHS } from "@/lib/funnel";
 import { loadScore } from "@/lib/score-record";
@@ -22,9 +23,18 @@ export default async function ScorePage() {
   const loaded = await loadScore();
 
   if (!loaded.ok) {
-    // Verified but nothing stored means the answers never landed, so the way
-    // forward is to submit them again rather than to show an empty result.
-    if (loaded.reason === "missing") redirect(STEP_PATHS["quiz-questions"]);
+    /* Verified but nothing stored means the answers never landed — the code was
+       accepted and the write after it wasn't. The answers are still in the tab and
+       the session is still good for the write, so `ResumeSave` makes it from here
+       instead of marching the user back through the quiz and a second code. */
+    if (loaded.reason === "missing") {
+      return (
+        <main className="relative flex min-h-[100dvh] flex-col items-center justify-center bg-canvas-tint px-5">
+          <SiteHeader />
+          <ResumeSave />
+        </main>
+      );
+    }
     // No verified session at all — this browser hasn't earned a score yet.
     if (loaded.reason === "unverified") redirect(STEP_PATHS.details);
 

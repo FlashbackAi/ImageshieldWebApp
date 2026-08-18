@@ -1,17 +1,9 @@
 import { backendFetch, BackendError } from "@/lib/api";
-import { splitName } from "@/lib/contact";
 import { handoffFor } from "@/lib/handoff";
 import { validateAnswers } from "@/lib/quiz";
+import { saveLead, saveQuizAnswers } from "@/lib/quiz-save";
 import { allow } from "@/lib/rate-limit";
 import { markVerified, readSession } from "@/lib/session";
-
-type QuizResponse = {
-  success: boolean;
-  score: number;
-  riskLevel: string;
-  breakdown: unknown[];
-  activeReportsCount: number;
-};
 
 type CheckUser = {
   registered: boolean;
@@ -23,31 +15,30 @@ type CheckUser = {
 /**
  * POST /api/otp/verify — { code, answers }
  *
- * The one place the funnel writes anything. Verifying and saving happen in the same
- * request so there's no window where a half-verified session can write: the phone
- * comes out of the signed cookie, never out of this body.
+ * Verifying and saving happen in the same request so there's no window where a
+ * half-verified session can write: the phone comes out of the signed cookie, never
+ * out of this body.
  *
  * The calls, and their order, are the app's own onboarding sequence (OTPScreen →
  * ProfileSetupScreen), against the same endpoints:
  *
- *   /verify-otp                → marks the record `registered`, same as the app.
+ *   /verify-otp                → marks the record `registered`, same as the app, and
+ *                                clears the stored code, so it accepts each one once.
  *   /check-user                → what the app asks next. Nothing here branches on
  *                                it, but it is what fires the backend's `check_user`
  *                                activity log, so web sign-ins show up in the same
  *                                analytics as app ones.
+ *   /update-profile            → the lead's name and email.
  *   /api/likeness-health-quiz  → scores the answers onto the mobile user record,
  *                                which is what the app reads back.
- *   /update-profile            → the lead's name and email.
  *
- * `/update-profile` also sets `profileCompleted: true`, and the app treats that as
- * "onboarding finished" (SplashScreen line 114, OTPScreen line 152). So a lead who
- * came through the web and later installs the app lands on the Dashboard without
- * being asked for a selfie, and has to add one from Settings. That is a known and
- * accepted trade for capturing the lead against the record the app actually reads —
- * the alternative was a mobile-side change to also require `selfieUploaded`.
+ * The lead goes in before the score, which is the reverse of how this read at first.
+ * The score can be retried from the client afterwards — see `verified` in the failure
+ * response below, and `/api/quiz` — while the name and email live only in the session
+ * cookie, so they are the pair that has to be banked first.
  *
  * An earlier version posted to `/updateUserDetails`, which does not exist on the
- * backend; the call failed every time inside the catch below, so no lead's name or
+ * backend; the call failed every time inside `saveLead`'s catch, so no lead's name or
  * email was ever stored.
  */
 export async function POST(request: Request) {
@@ -100,8 +91,9 @@ export async function POST(request: Request) {
     );
   }
 
-  // From here the phone is proven, so the session is upgraded before the writes —
-  // if a write fails the user can still land on the result screen and retry.
+  /* The code is now spent, so the session is upgraded before the writes. Everything
+     below this line is retryable against that verified session; nothing below it can
+     be recovered by entering a code again. */
   await markVerified(session);
 
   /* Analytics only, and the app tolerates it failing too (OTPScreen wraps its own
@@ -116,53 +108,25 @@ export async function POST(request: Request) {
     console.error("check-user failed", (error as Error).message);
   }
 
-  let quiz: QuizResponse;
+  // Banked first, and never fatal — the user is waiting on a score, not on this.
+  const leadSaved = await saveLead(session);
+
+  let quiz;
   try {
-    quiz = await backendFetch<QuizResponse>("/api/likeness-health-quiz", {
-      method: "POST",
-      // Bare, no `+`, exactly as the app's quizSync posts it. The backend puts the
-      // `+` back either way; sending the same bytes keeps the two clients from
-      // drifting apart if that ever stops being true.
-      body: JSON.stringify({
-        userPhone: session.phone.replace(/\+/g, ""),
-        answers: parsedAnswers.answers,
-      }),
-    });
+    quiz = await saveQuizAnswers(session.phone, parsedAnswers.answers);
   } catch (error) {
     console.error("quiz save failed", (error as Error).message);
     return Response.json(
-      { error: "We couldn't save your answers. Please try again." },
+      {
+        error: "We couldn't save your answers. Please try again.",
+        /* The one thing the client cannot work out for itself, and the thing it has
+           to know: the number IS verified, so the way out is `/api/quiz`, not
+           another code. Retrying the code here would answer "that code isn't
+           right" — true, and completely misleading. */
+        verified: true,
+      },
       { status: 502 },
     );
-  }
-
-  // The lead fields are worth having but not worth failing the funnel over — the
-  // score is already saved and the user is waiting on it.
-  let leadSaved = true;
-  try {
-    const { firstName, lastName } = splitName(session.fullName);
-    await backendFetch("/update-profile", {
-      method: "POST",
-      /* Exactly the fields ProfileSetupScreen sends, and no more. The handler also
-         destructures `employer` and `school`, so leaving them off spreads them in
-         as undefined over the existing record — whatever that does to an app user
-         who had filled them in, it already does when they edit their name in the
-         app (PersonalInfoScreen omits them too). Matching the app's payload keeps
-         the web from being the odd one out; it does not fix that. */
-      body: JSON.stringify({
-        phone: session.phone,
-        firstName,
-        lastName,
-        email: session.email,
-        fullName: session.fullName,
-      }),
-    });
-  } catch (error) {
-    leadSaved = false;
-    console.error("lead save failed", {
-      phone: session.phone,
-      message: (error as Error).message,
-    });
   }
 
   return Response.json({
@@ -174,8 +138,8 @@ export async function POST(request: Request) {
     leadSaved,
     /* Whether this number had already got as far as a selfie in the app before the
        funnel touched it. `registered` is no use for this — /verify-otp has just set
-       it — and `profileCompleted` is about to be set by /update-profile below, so
-       the selfie is the one part of onboarding the web never does.
+       it — and `profileCompleted` was just set by `saveLead`, so the selfie is the
+       one part of onboarding the web never does.
 
        The result screen doesn't read it yet: it's here so "Download the app" can
        become "Open the app" without another round trip, and so it's visible to
