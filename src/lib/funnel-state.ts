@@ -93,16 +93,6 @@ export function toggleAnswer(
   );
 }
 
-export function clearFunnel(): void {
-  cache = EMPTY;
-  try {
-    window.sessionStorage.removeItem(KEY);
-  } catch {
-    // Nothing to clean up.
-  }
-  for (const listener of listeners) listener();
-}
-
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);

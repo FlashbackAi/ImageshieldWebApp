@@ -113,10 +113,6 @@ export async function readVerifiedSession(): Promise<FunnelSession | null> {
   return session?.verified ? session : null;
 }
 
-export async function clearSession(): Promise<void> {
-  (await cookies()).delete(COOKIE);
-}
-
 function now(): number {
   return Math.floor(Date.now() / 1000);
 }

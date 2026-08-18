@@ -4,7 +4,7 @@
  * Designers reorder these screens constantly. Keep the order in this one array and
  * derive next/prev from it — never hardcode "after OTP comes the quiz" in a screen.
  */
-export const FUNNEL_STEPS = [
+const FUNNEL_STEPS = [
   "landing",
   "quiz",
   "quiz-questions",
@@ -40,11 +40,11 @@ export const STEP_PATHS: Record<FunnelStep, string> = {
  */
 const AUTO_ADVANCING: ReadonlySet<FunnelStep> = new Set(["calculating"]);
 
-export function nextStep(step: FunnelStep): FunnelStep | null {
+function nextStep(step: FunnelStep): FunnelStep | null {
   return FUNNEL_STEPS[FUNNEL_STEPS.indexOf(step) + 1] ?? null;
 }
 
-export function prevStep(step: FunnelStep): FunnelStep | null {
+function prevStep(step: FunnelStep): FunnelStep | null {
   const i = FUNNEL_STEPS.indexOf(step);
   return i > 0 ? FUNNEL_STEPS[i - 1] : null;
 }
@@ -59,9 +59,4 @@ export function backPath(step: FunnelStep): string | null {
   let prev = prevStep(step);
   while (prev && AUTO_ADVANCING.has(prev)) prev = prevStep(prev);
   return prev ? STEP_PATHS[prev] : null;
-}
-
-/** 0–1, for the progress bar at the top of every screen. */
-export function progressAt(step: FunnelStep): number {
-  return (FUNNEL_STEPS.indexOf(step) + 1) / FUNNEL_STEPS.length;
 }

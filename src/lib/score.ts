@@ -35,7 +35,7 @@ export type ScoreRecord = {
  * are NOT used to decide the band — `riskLevel` comes off the response — only to
  * draw the scale and to fall back if that string is ever missing.
  */
-export const RISK_BANDS: ReadonlyArray<{
+const RISK_BANDS: ReadonlyArray<{
   level: RiskLevel;
   /** Inclusive lower bound of the band, as printed on the gauge. */
   from: number;
@@ -152,7 +152,7 @@ export const GAUGE_THEMES: Record<
  * inside each band is what keeps the printed 50 and 80 sitting on the boundaries
  * they name.
  */
-export function scoreToAngle(score: number): number {
+function scoreToAngle(score: number): number {
   const s = Math.min(Math.max(score, 0), 100);
   const [b50, b80] = GAUGE.breaks;
   if (s <= 50) return ANGLE_0 + (s / 50) * (b50 - ANGLE_0);
@@ -252,7 +252,7 @@ export type FactorIcon =
   | "shield"
   | "wand";
 
-export const FACTOR_PRESENTATION: Record<
+const FACTOR_PRESENTATION: Record<
   string,
   { title: string; icon: FactorIcon; description: string }
 > = {

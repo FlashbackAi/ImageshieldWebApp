@@ -69,7 +69,7 @@ function trustedHops(): number {
  * closed. A misconfiguration makes the funnel stingy with codes rather than making
  * the cap disappear.
  */
-export function clientIp(request: Request): string {
+function clientIp(request: Request): string {
   const hops = trustedHops();
   if (hops === 0) {
     // Nothing in front of us is vouching for these headers, so neither do we. Next
