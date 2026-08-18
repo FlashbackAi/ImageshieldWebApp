@@ -51,7 +51,11 @@ export function HeroSection() {
 
       <HeroNav />
 
-      <div className="relative z-10 mx-auto flex h-full min-h-[586px] w-full max-w-[1449px] flex-col justify-end px-6 pt-32 pb-10 drop-shadow-[0_4px_4px_rgb(0_0_0/0.12)] lg:min-h-0 lg:px-[84px] lg:pb-[100px]">
+      {/* The 84px left inset is measured from the viewport, not from a centred 1449
+          container — see `HeroNav`, whose 35px is held the same way so the logo keeps
+          sitting 49px to the left of the headline at any width. The headline and
+          paragraph carry their own max-widths, so the measure stays the design's. */}
+      <div className="relative z-10 flex h-full min-h-[586px] w-full flex-col justify-end px-6 pt-32 pb-10 drop-shadow-[0_4px_4px_rgb(0_0_0/0.12)] lg:min-h-0 lg:px-[84px] lg:pb-[100px]">
         {/* `text-balance` only from `lg`: the mobile frame breaks after "Likeness",
             and balancing a 342px measure pulls "Health" up onto line one instead. */}
         <h1 className="max-w-[700px] text-[1.8rem] leading-[38px] font-extrabold tracking-tight text-white sm:text-[2.5rem] sm:leading-tight lg:max-w-[600px] lg:text-[48px] lg:leading-[60px] lg:text-balance">

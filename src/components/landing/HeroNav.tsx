@@ -15,6 +15,12 @@ import { Close, Menu } from "./icons";
  * 32px between links. (The bar sat at 38/32 until the design squared it up to 35 on
  * both sides, which is what makes it 1379 wide at the design width.)
  *
+ * The 35px is held against the viewport at every width, not against a 1449 container:
+ * capping it there turned the bar into a centred pill with ~260px of gutter on a
+ * 1900-wide window, and pinned it 260px away from the headline the design sets 49px
+ * to its right. `HeroSection`'s copy block holds its own 84px the same way, so the
+ * two insets keep the design's relationship at any width.
+ *
  * The 390-wide frame draws the same bar smaller — 18px down, 20px in, 61px tall, the
  * logo at 29px — and holds the same 24px left inset. It draws no links and no
  * disclosure at all, just the wordmark; the button below is ours, since dropping the
@@ -32,7 +38,7 @@ export function HeroNav() {
 
   return (
     <header className="absolute inset-x-0 top-0 z-20 pt-[18px] lg:pt-5">
-      <div className="mx-auto max-w-[1449px] px-5 lg:px-[35px]">
+      <div className="px-5 lg:px-[35px]">
         <div className="flex h-[61px] items-center justify-between rounded-2xl bg-ink-soft/20 pr-2 pl-6 backdrop-blur-[10px] lg:h-[79px] lg:pr-8">
           <Link href="/" aria-label="ImageShield home" className="shrink-0">
             <Image
