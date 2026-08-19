@@ -3,6 +3,7 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import type { Contact } from "./contact";
+import { funnelSecret } from "./env";
 
 /**
  * The funnel's server-side memory: who we're mid-OTP with, and whether that phone
@@ -33,18 +34,10 @@ export type FunnelSession = Contact & {
   exp: number;
 };
 
-function secret(): string {
-  const value = process.env.FUNNEL_SECRET;
-  if (!value) {
-    throw new Error(
-      "FUNNEL_SECRET is not set — copy .env.example to .env.local and put a random string in it",
-    );
-  }
-  return value;
-}
-
 function sign(payload: string): string {
-  return createHmac("sha256", secret()).update(payload).digest("base64url");
+  return createHmac("sha256", funnelSecret())
+    .update(payload)
+    .digest("base64url");
 }
 
 function encode(session: FunnelSession): string {

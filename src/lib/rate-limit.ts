@@ -1,5 +1,7 @@
 import "server-only";
 
+import { trustedProxyHops } from "./env";
+
 /**
  * Fixed-window counters, held in memory.
  *
@@ -41,28 +43,20 @@ export function allow(key: string, limit: number, windowMs: number): boolean {
 }
 
 /**
- * How many proxies sit between this process and the internet, each appending to
- * `X-Forwarded-For`. One (an nginx in front) unless told otherwise.
+ * Best-effort client address, and the key the per-IP limits are counted against.
  *
- * This number is the whole reason the per-IP limit means anything. `X-Forwarded-For`
- * is a header the client writes, and the LEFTMOST entry is therefore whatever the
- * client felt like claiming — reading that entry hands out a fresh bucket per
- * request to anyone who sends `X-Forwarded-For: 1.2.3.4` and rotates it, which is
- * the per-IP cap removed rather than enforced.
+ * `TRUSTED_PROXY_HOPS` — how many proxies sit between this process and the internet,
+ * each appending to `X-Forwarded-For` — is the whole reason the per-IP limit means
+ * anything. `X-Forwarded-For` is a header the client writes, and the LEFTMOST entry is
+ * therefore whatever the client felt like claiming; reading that entry hands out a
+ * fresh bucket per request to anyone who sends `X-Forwarded-For: 1.2.3.4` and rotates
+ * it, which is the per-IP cap removed rather than enforced.
  *
  * What can't be forged is the entry the nearest trusted proxy appended, because it
  * appends the address of the socket it actually accepted (nginx's
  * `$proxy_add_x_forwarded_for` is "whatever arrived, plus the peer"). With one proxy
  * that is the last entry; with N, it's the Nth from the right. Forged entries only
  * ever pad the left, so counting from the right is stable however many are sent.
- */
-function trustedHops(): number {
-  const configured = Number(process.env.TRUSTED_PROXY_HOPS);
-  return Number.isInteger(configured) && configured >= 0 ? configured : 1;
-}
-
-/**
- * Best-effort client address, and the key the per-IP limits are counted against.
  *
  * Returns "unknown" when no trusted proxy is declared, or when one is and it sent no
  * forwarded header: that lumps those callers into a single shared bucket, which fails
@@ -70,7 +64,7 @@ function trustedHops(): number {
  * the cap disappear.
  */
 function clientIp(request: Request): string {
-  const hops = trustedHops();
+  const hops = trustedProxyHops();
   if (hops === 0) {
     // Nothing in front of us is vouching for these headers, so neither do we. Next
     // does not expose the socket address, so there is nothing else to key on.

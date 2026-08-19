@@ -1,5 +1,3 @@
-import "server-only";
-
 /**
  * Server-side gateway to the existing ImageShield backend
  * (~/Desktop/ImageShieldPhotoShare/server — the same API the mobile app uses).
@@ -8,7 +6,9 @@ import "server-only";
  * this, so OTP rate limiting, secrets, and abuse policy stay in one place instead of
  * being re-implemented (and bypassable) in the client.
  */
-const BACKEND_URL = process.env.BACKEND_URL;
+import "server-only";
+
+import { backendBaseUrl } from "./env";
 
 export class BackendError extends Error {
   constructor(
@@ -28,11 +28,7 @@ export async function backendFetch<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  if (!BACKEND_URL) {
-    throw new Error("BACKEND_URL is not set — copy .env.example to .env.local");
-  }
-
-  const res = await fetch(`${BACKEND_URL}${path}`, {
+  const res = await fetch(`${backendBaseUrl()}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
