@@ -22,7 +22,20 @@ export type FunnelState = {
   /** A list for the multi-select questions, a bare string for the rest — the same
    *  shape `validateAnswers` expects, so this object POSTs straight through. */
   answers: Record<string, string | string[]>;
+  /**
+   * The `quiz_version` the answers above were given against.
+   *
+   * Carried because the API pins responses to a definition: `POST /v1/quiz/responses`
+   * takes the version and rejects answers whose keys or values aren't in it. Without
+   * this, a tab left open across a quiz edit would submit answers to questions that
+   * no longer exist and be told, at the very end of the funnel, that they are
+   * invalid. `syncQuizVersion` catches it at the start instead.
+   */
+  quizVersion?: string;
   phone?: string;
+  /** Seconds the API says to wait before a resend is allowed, from `/api/otp/start`.
+   *  The OTP screen counts this down rather than a fixed local constant. */
+  resendAfter?: number;
   lastStep?: FunnelStep;
 };
 
@@ -62,6 +75,27 @@ export function writeFunnel(patch: Partial<FunnelState>): FunnelState {
   }
   for (const listener of listeners) listener();
   return next;
+}
+
+/**
+ * Reconciles what this tab has stored with the quiz the server is serving now.
+ *
+ * A version change means the questions changed, so the stored answers are answers to
+ * something else — keeping them would show a half-filled quiz whose ticks belong to
+ * questions that are no longer being asked. They are dropped and the quiz starts
+ * clean, which is the only honest option and is much better met here than in a 400
+ * after the visitor has entered their phone number.
+ *
+ * Returns whether anything was cleared, so a screen can decide whether to send the
+ * visitor back to question one.
+ */
+export function syncQuizVersion(version: string): boolean {
+  const current = readFunnel();
+  if (current.quizVersion === version) return false;
+
+  const hadAnswers = Object.keys(current.answers).length > 0;
+  writeFunnel({ quizVersion: version, answers: {} });
+  return hadAnswers;
 }
 
 export function saveAnswer(

@@ -1,149 +1,146 @@
-import { backendFetch, BackendError } from "@/lib/api";
-import { handoffFor } from "@/lib/handoff";
-import { validateAnswers } from "@/lib/quiz";
-import { saveLead, saveQuizAnswers } from "@/lib/quiz-save";
+import { adoptTokens, clearChallenge, readChallenge } from "@/lib/session";
+import { saveLead } from "@/lib/quiz-save";
 import { allow } from "@/lib/rate-limit";
-import { markVerified, readSession } from "@/lib/session";
-
-type CheckUser = {
-  registered: boolean;
-  selfieUploaded: boolean;
-  profileCompleted: boolean;
-  consentSigned: boolean;
-};
+import { verifyOtp } from "@/lib/v1/auth";
+import { ApiFailure } from "@/lib/v1/errors";
+import { fetchMe, type Me } from "@/lib/v1/me";
 
 /**
- * POST /api/otp/verify — { code, answers }
+ * POST /api/otp/verify — { code }
  *
- * Verifying and saving happen in the same request so there's no window where a
- * half-verified session can write: the phone comes out of the signed cookie, never
- * out of this body.
+ * Exchanges the code for a session and banks the lead's name and email against it.
+ * What identifies the record is the session, not anything in this body — on /v1 no
+ * route takes a phone, a person id or an account id to decide whose data it touches.
  *
- * The calls, and their order, are the app's own onboarding sequence (OTPScreen →
- * ProfileSetupScreen), against the same endpoints:
+ *   /v1/auth/otp/verify  the code for an access and refresh token. The challenge is
+ *                        spent whatever happens next.
+ *   /v1/me               who we now are. Read before the write because the email
+ *                        below is only sent when it differs from what is on record.
+ *   /v1/me/profile       the lead's name.
+ *   /v1/me/email         the lead's email — and a verification mail with it.
  *
- *   /verify-otp                → marks the record `registered`, same as the app, and
- *                                clears the stored code, so it accepts each one once.
- *   /check-user                → what the app asks next. Nothing here branches on
- *                                it, but it is what fires the backend's `check_user`
- *                                activity log, so web sign-ins show up in the same
- *                                analytics as app ones.
- *   /update-profile            → the lead's name and email.
- *   /api/likeness-health-quiz  → scores the answers onto the mobile user record,
- *                                which is what the app reads back.
+ * The quiz is deliberately NOT here. It used to be: while the questions came before
+ * the phone number, this route both verified and scored, so that there was no window
+ * in which a half-authenticated visitor could write. The questions now come after
+ * sign-in, because the API serves the quiz definition only to a session — so by the
+ * time there are answers to save there is a session to save them with, and the score
+ * write belongs to `/api/quiz`. That also means a failed score write no longer costs
+ * anyone their code, which is what the old `verified: true` response existed to
+ * rescue.
  *
- * The lead goes in before the score, which is the reverse of how this read at first.
- * The score can be retried from the client afterwards — see `verified` in the failure
- * response below, and `/api/quiz` — while the name and email live only in the session
- * cookie, so they are the pair that has to be banked first.
- *
- * An earlier version posted to `/updateUserDetails`, which does not exist on the
- * backend; the call failed every time inside `saveLead`'s catch, so no lead's name or
- * email was ever stored.
+ * On statuses, because one of them changed with the API: a wrong code is a 401 from
+ * /v1 and is answered here as a **400**, because this route reserves 401 for "there
+ * is no pending challenge in this browser" — the one condition where retyping and
+ * resending are both pointless and the screen has to offer a fresh number instead.
+ * Collapsing the two would send someone who mistyped a digit back to the start.
  */
 export async function POST(request: Request) {
-  const session = await readSession();
-  if (!session) {
+  const challenge = await readChallenge();
+  if (!challenge) {
     return Response.json(
       { error: "Your code expired. Request a new one." },
       { status: 401 },
     );
   }
 
-  let body: unknown;
+  let body: { code?: unknown };
   try {
-    body = await request.json();
+    body = (await request.json()) as { code?: unknown };
   } catch {
     return Response.json({ error: "Invalid request" }, { status: 400 });
   }
-  const { code, answers: rawAnswers } = (body ?? {}) as Record<string, unknown>;
 
-  if (typeof code !== "string" || !/^\d{4,8}$/.test(code.trim())) {
-    return Response.json({ error: "Enter the code we texted you" }, { status: 400 });
+  /* Exactly six. The API validates the length and would answer a five-digit entry
+     with the same 401 it gives a wrong code, which reads as "that code isn't right"
+     for something that was never a code. */
+  const code = typeof body.code === "string" ? body.code.trim() : "";
+  if (!/^\d{6}$/.test(code)) {
+    return Response.json(
+      { error: "Enter the 6-digit code we texted you" },
+      { status: 400 },
+    );
   }
 
-  // Six digits is 1e6 guesses; without this, a script gets there.
-  if (!allow(`verify:${session.phone}`, 6, 10 * 60 * 1000)) {
+  // Six digits is 1e6 guesses; the API caps attempts per challenge, and this caps
+  // them per number so a script can't buy fresh attempts by resending.
+  if (!allow(`verify:${challenge.phone}`, 6, 10 * 60 * 1000)) {
     return Response.json(
       { error: "Too many wrong codes. Request a new one." },
       { status: 429 },
     );
   }
 
-  const parsedAnswers = validateAnswers(rawAnswers);
-  if (!parsedAnswers.ok) {
-    return Response.json({ error: parsedAnswers.error }, { status: 400 });
-  }
-
   try {
-    await backendFetch("/verify-otp", {
-      method: "POST",
-      body: JSON.stringify({ phone: session.phone, otp: code.trim() }),
-    });
+    const pair = await verifyOtp(challenge.challengeId, code);
+    await adoptTokens(pair);
   } catch (error) {
-    if (error instanceof BackendError && error.status === 400) {
-      return Response.json({ error: "That code isn't right" }, { status: 400 });
+    if (error instanceof ApiFailure) {
+      /* 404 NOT_FOUND, not the 401 the collection documents — verified against the
+         live API. It means the challenge is gone: expired, or burned by too many
+         attempts. Retyping cannot help, but Resend can (it re-issues against the
+         phone in the cookie, not against this dead id), so the screen keeps its
+         resend button and this says which button to press. */
+      if (error.status === 404) {
+        return Response.json(
+          { error: "That code has expired. Tap Resend for a new one." },
+          { status: 400 },
+        );
+      }
+
+      /* Our own copy rather than the API's. These messages ("invalid credentials",
+         "phone_e164: Invalid") are written for whoever is reading a log, not for
+         someone holding a phone. */
+      if (error.status === 401 || error.status === 400) {
+        console.error("otp/verify rejected", error.status, error.code, error.message);
+        return Response.json({ error: "That code isn't right" }, { status: 400 });
+      }
     }
-    console.error("otp/verify failed", (error as Error).message);
+    console.error("otp/verify failed", {
+      status: error instanceof ApiFailure ? error.status : undefined,
+      code: error instanceof ApiFailure ? error.code : undefined,
+      message: (error as Error).message,
+    });
     return Response.json(
       { error: "Couldn't check your code. Please try again." },
       { status: 502 },
     );
   }
 
-  /* The code is now spent, so the session is upgraded before the writes. Everything
-     below this line is retryable against that verified session; nothing below it can
-     be recovered by entering a code again. */
-  await markVerified(session);
+  /* The code is spent and the session exists, so the challenge cookie has done its
+     job. The name and email are read out of it just below, before it goes. */
+  const contact = {
+    firstName: challenge.firstName,
+    lastName: challenge.lastName,
+    email: challenge.email,
+    dob: challenge.dob,
+  };
+  await clearChallenge();
 
-  /* Analytics only, and the app tolerates it failing too (OTPScreen wraps its own
-     follow-up call in a catch), so a blip here must not cost the user their score. */
-  let account: CheckUser | undefined;
+  /* Read before the write, and never fatal: it decides whether the email call sends
+     a fresh verification mail, and a blip here must not cost the visitor their run. */
+  let me: Me | null = null;
   try {
-    account = await backendFetch<CheckUser>("/check-user", {
-      method: "POST",
-      body: JSON.stringify({ phone: session.phone }),
-    });
+    me = await fetchMe();
   } catch (error) {
-    console.error("check-user failed", (error as Error).message);
+    console.error("me read failed", (error as Error).message);
   }
 
-  // Banked first, and never fatal — the user is waiting on a score, not on this.
-  const leadSaved = await saveLead(session);
-
-  let quiz;
-  try {
-    quiz = await saveQuizAnswers(session.phone, parsedAnswers.answers);
-  } catch (error) {
-    console.error("quiz save failed", (error as Error).message);
-    return Response.json(
-      {
-        error: "We couldn't save your answers. Please try again.",
-        /* The one thing the client cannot work out for itself, and the thing it has
-           to know: the number IS verified, so the way out is `/api/quiz`, not
-           another code. Retrying the code here would answer "that code isn't
-           right" — true, and completely misleading. */
-        verified: true,
-      },
-      { status: 502 },
-    );
-  }
+  /* Never fatal either. The visitor is on their way to the quiz; a name that didn't
+     save is worth a log, not a dead end — and `/api/quiz` will not care. */
+  const leadSaved = await saveLead(contact, me);
 
   return Response.json({
-    score: quiz.score,
-    riskLevel: quiz.riskLevel,
-    breakdown: quiz.breakdown,
-    activeReportsCount: quiz.activeReportsCount,
-    handoff: handoffFor(session.phone),
+    ok: true,
     leadSaved,
-    /* Whether this number had already got as far as a selfie in the app before the
-       funnel touched it. `registered` is no use for this — /verify-otp has just set
-       it — and `profileCompleted` was just set by `saveLead`, so the selfie is the
-       one part of onboarding the web never does.
-
-       The result screen doesn't read it yet: it's here so "Download the app" can
-       become "Open the app" without another round trip, and so it's visible to
-       whoever is counting how many leads are genuinely new. */
-    returningAppUser: Boolean(account?.selfieUploaded),
+    /* Whether this number had already got somewhere in the app before the funnel
+       touched it. The server's own onboarding block answers it now, rather than this
+       side inferring it from flags it had just written itself. */
+    returningAppUser: Boolean(
+      me?.onboarding.enrolled || me?.onboarding.photos_uploaded,
+    ),
+    /* Already answered the quiz on another device or in the app. The OTP screen does
+       not branch on it yet; it is here so "take the quiz" can become "see your score"
+       without another round trip. */
+    quizAlreadyTaken: Boolean(me?.onboarding.quiz_completed),
   });
 }

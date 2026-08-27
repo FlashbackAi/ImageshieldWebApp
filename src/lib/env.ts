@@ -9,8 +9,7 @@ import "server-only";
  * was only checked for being non-empty, so a `.env.local` copied from the template and
  * never edited signed session cookies with the literal string `replace-me`. That is
  * the one thing session.ts exists to prevent, since a guessable signing key lets a
- * visitor mint `verified: true` for a stranger's phone number and overwrite their
- * score.
+ * visitor mint a verified funnel state for a stranger's phone number.
  *
  * So: parse, don't trust. Each getter memoizes, and `assertServerEnv()` runs the whole
  * set at server start (see src/instrumentation.ts) so a bad deploy fails at boot with
@@ -44,62 +43,79 @@ function required(name: string, hint: string): string {
   return raw;
 }
 
-let cachedBackendUrl: string | undefined;
+let cachedApiUrl: string | undefined;
 
 /**
- * Base URL of the existing ImageShield backend, with no trailing slash.
+ * Base URL of the ImageShield /v1 API, with no trailing slash.
+ *
+ * Renamed from `BACKEND_URL` rather than repointed, and the rename is the warning:
+ * the funnel used to talk to the legacy phone-keyed backend, where every request
+ * named the user it was acting on. /v1 accepts no identifier as the actor anywhere —
+ * the session is the identity. A deployment that still had the old host in
+ * `BACKEND_URL` would not have failed loudly against a variable of the same name; it
+ * would have 404d its way through a lead's funnel run. So the old name is detected
+ * and rejected with a sentence saying what changed.
  *
  * Normalized rather than passed through: callers build request URLs as
- * `${base}${path}`, so a configured value ending in `/` would produce `//verify-otp`,
+ * `${base}${path}`, so a configured value ending in `/` would produce `//v1/quiz`,
  * which some routers treat as a different path and others reject outright.
  */
-export function backendBaseUrl(): string {
-  if (cachedBackendUrl !== undefined) return cachedBackendUrl;
+export function apiBaseUrl(): string {
+  if (cachedApiUrl !== undefined) return cachedApiUrl;
 
-  const raw = required("BACKEND_URL", HINT);
+  if (!process.env.IMAGESHIELD_API_URL?.trim() && process.env.BACKEND_URL?.trim()) {
+    throw new Error(
+      "IMAGESHIELD_API_URL is not set, but BACKEND_URL is — the funnel now runs on " +
+        "the /v1 API, which is a different service. Set IMAGESHIELD_API_URL to the " +
+        "/v1 host (e.g. https://dev.imageshield.com) and remove BACKEND_URL.",
+    );
+  }
+
+  const raw = required("IMAGESHIELD_API_URL", HINT);
 
   let parsed: URL;
   try {
     parsed = new URL(raw);
   } catch {
     throw new Error(
-      `BACKEND_URL is not a valid absolute URL (got "${raw}") — it needs a scheme, e.g. https://host:5000`,
+      `IMAGESHIELD_API_URL is not a valid absolute URL (got "${raw}") — it needs a scheme, e.g. https://dev.imageshield.com`,
     );
   }
 
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
     throw new Error(
-      `BACKEND_URL must be http or https (got "${parsed.protocol}")`,
+      `IMAGESHIELD_API_URL must be http or https (got "${parsed.protocol}")`,
     );
   }
 
-  // Phone numbers and OTP codes cross this link. http is tolerable against a
-  // localhost backend during development and never in production.
+  // Phone numbers, OTP codes and bearer tokens cross this link. http is tolerable
+  // against a localhost API during development and never in production.
   if (isProduction() && parsed.protocol !== "https:") {
     throw new Error(
-      "BACKEND_URL must use https in production — OTP codes and phone numbers travel over it",
+      "IMAGESHIELD_API_URL must use https in production — OTP codes, phone numbers and session tokens travel over it",
     );
   }
 
   if (parsed.username || parsed.password) {
     throw new Error(
-      "BACKEND_URL must not embed credentials — they would be sent on every request and logged by anything in between",
+      "IMAGESHIELD_API_URL must not embed credentials — they would be sent on every request and logged by anything in between",
     );
   }
 
   if (parsed.search || parsed.hash) {
     throw new Error(
-      "BACKEND_URL must not carry a query string or fragment — request paths are appended to it",
+      "IMAGESHIELD_API_URL must not carry a query string or fragment — request paths are appended to it",
     );
   }
 
-  cachedBackendUrl = parsed.toString().replace(/\/+$/, "");
-  return cachedBackendUrl;
+  cachedApiUrl = parsed.toString().replace(/\/+$/, "");
+  return cachedApiUrl;
 }
 
 let cachedSecret: string | undefined;
 
-/** HMAC key for the funnel session cookie. See session.ts for what it protects. */
+/** HMAC key for the pre-verification funnel cookie. See session.ts for what it
+ *  protects, and why the token cookie beside it needs no signature of its own. */
 export function funnelSecret(): string {
   if (cachedSecret !== undefined) return cachedSecret;
 
@@ -110,7 +126,7 @@ export function funnelSecret(): string {
 
   if (raw === PLACEHOLDER_SECRET) {
     throw new Error(
-      `FUNNEL_SECRET is still the .env.example placeholder ("${PLACEHOLDER_SECRET}") — anyone who has read this repo could forge a verified session and overwrite a stranger's score`,
+      `FUNNEL_SECRET is still the .env.example placeholder ("${PLACEHOLDER_SECRET}") — anyone who has read this repo could forge the contact details a lead's profile is built from`,
     );
   }
 
@@ -166,7 +182,7 @@ export function trustedProxyHops(): number {
 export function assertServerEnv(): void {
   const problems: string[] = [];
 
-  for (const check of [backendBaseUrl, funnelSecret, trustedProxyHops]) {
+  for (const check of [apiBaseUrl, funnelSecret, trustedProxyHops]) {
     try {
       check();
     } catch (error) {

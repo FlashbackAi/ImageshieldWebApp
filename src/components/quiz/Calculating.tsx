@@ -1,20 +1,26 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ShieldMark } from "@/components/ShieldMark";
 import { nextPath, STEP_PATHS } from "@/lib/funnel";
 import { readFunnel } from "@/lib/funnel-state";
-import { missingAnswers } from "@/lib/quiz";
+import { quizIncomplete, type QuizDefinition } from "@/lib/quiz";
+import { submitAnswers, type SubmitOutcome } from "@/lib/quiz-submit";
 
 /**
- * How long the loader holds before moving on.
+ * Submits the answers, then hands over to the score screen.
  *
- * Nothing is actually being computed here — the score can't be worked out until a
- * verified phone number exists to hang it on, which is two screens away. So this is
- * a fixed beat, long enough to read the line and short enough not to feel stuck.
+ * This used to be a fixed three-second pause with nothing behind it — the quiz came
+ * before the phone number, so there was no session to write with and the real submit
+ * happened two screens later inside the OTP verify. It is a real wait now.
+ *
+ * The floor below is what is left of the staged version, and it earns its keep for a
+ * different reason: the write usually answers in well under a second, and a loader
+ * that appears and vanishes inside 200ms reads as a glitch rather than as progress.
  */
-const HOLD_MS = 3000;
+const MIN_HOLD_MS = 1200;
 
 /* The ring is 228° of a 96px circle: r 45.69 + half of the 4.63 stroke lands the
    outer edge exactly on the box. Dashes are in path length, so the visible arc is
@@ -23,23 +29,98 @@ const R = 45.69;
 const SWEEP = (228 / 360) * 2 * Math.PI * R;
 const GAP = 2 * Math.PI * R - SWEEP;
 
-export function Calculating() {
+export function Calculating({ definition }: { definition: QuizDefinition }) {
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  /* React runs effects twice in development, and this one writes. */
+  const started = useRef(false);
+
+  /* Applies an outcome. A `useCallback` rather than inline so the effect below hands
+     it to a promise instead of calling setState in its own body — a synchronous
+     setState inside an effect is what triggers cascading renders. */
+  const apply = useCallback(
+    (outcome: SubmitOutcome) => {
+      if (outcome.ok) {
+        return router.push(nextPath("calculating") ?? STEP_PATHS.score);
+      }
+      if (outcome.reason === "signed-out") {
+        return router.replace(STEP_PATHS.details);
+      }
+      if (outcome.reason === "retake") {
+        return router.replace(STEP_PATHS["quiz-questions"]);
+      }
+      setError(outcome.error);
+    },
+    [router],
+  );
+
+  /* The floor overlaps the request rather than being added to it, so a slow write
+     costs its own time and nothing more. It exists because the write usually answers
+     in well under a second, and a loader that appears and vanishes inside 200ms reads
+     as a glitch rather than as progress. */
+  const run = useCallback(
+    () =>
+      Promise.all([
+        submitAnswers(definition),
+        new Promise((done) => setTimeout(done, MIN_HOLD_MS)),
+      ]).then(([outcome]) => outcome),
+    [definition],
+  );
 
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+
     /* Read the store directly rather than through `useFunnel`: this runs once, and
        the hook's first value is the empty server snapshot, which would read as an
        abandoned quiz and bounce someone who answered everything. */
-    if (missingAnswers(readFunnel().answers).length) {
+    if (quizIncomplete(definition, readFunnel())) {
       router.replace(STEP_PATHS["quiz-questions"]);
       return;
     }
-    const timer = setTimeout(
-      () => router.push(nextPath("calculating") ?? STEP_PATHS.landing),
-      HOLD_MS,
+
+    let live = true;
+    run().then((outcome) => {
+      if (live) apply(outcome);
+    });
+    return () => {
+      live = false;
+    };
+  }, [apply, definition, router, run]);
+
+  if (error !== null) {
+    return (
+      <div className="flex flex-col items-center text-center">
+        <ShieldMark monotone className="w-[37px] text-brand" />
+        <h1 className="mt-8 max-w-[420px] text-2xl leading-9 font-bold text-ink">
+          We couldn&apos;t finish scoring your quiz
+        </h1>
+        {/* Says what is safe, because it is the question a stalled screen raises:
+            the answers are still in this tab and the number is already verified, so
+            retrying costs nothing and needs no new code. */}
+        <p className="mt-4 max-w-[420px] text-base text-ink-muted">
+          {error} Your answers are still here and your number is verified — nothing
+          needs re-sending.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setError(null);
+            run().then(apply);
+          }}
+          className="mt-8 flex h-14 w-full max-w-[317px] items-center justify-center rounded-full bg-brand text-lg font-semibold text-ink-inverse transition-colors hover:bg-cta"
+        >
+          Try again
+        </button>
+        <Link
+          href={STEP_PATHS["quiz-questions"]}
+          className="mt-5 text-sm font-medium text-brand transition-colors hover:opacity-70"
+        >
+          Go back to the quiz
+        </Link>
+      </div>
     );
-    return () => clearTimeout(timer);
-  }, [router]);
+  }
 
   return (
     <div role="status" className="flex flex-col items-center">

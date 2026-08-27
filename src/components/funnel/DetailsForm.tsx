@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { ChevronDown } from "@/components/landing/icons";
 import {
   CALLING_CODES,
@@ -10,12 +10,12 @@ import {
   DEFAULT_COUNTRY,
 } from "@/lib/calling-codes";
 import { backPath, nextPath, STEP_PATHS } from "@/lib/funnel";
-import { readFunnel, writeFunnel } from "@/lib/funnel-state";
-import { missingAnswers } from "@/lib/quiz";
-import { ChatBubble, ContactCard, Envelope } from "./icons";
+import { writeFunnel } from "@/lib/funnel-state";
+import { Calendar, ChatBubble, ContactCard, Envelope } from "./icons";
 
 /**
- * Name, email and phone — the gate in front of the score.
+ * First and last name, email, date of birth and phone — the gate in front of the
+ * score.
  *
  * Submitting sends the OTP. Nothing is written to the shared user record here: the
  * server only remembers the details in a signed cookie until the code comes back,
@@ -29,6 +29,23 @@ import { ChatBubble, ContactCard, Envelope } from "./icons";
 
 const FIELD =
   "h-14 w-full rounded-[14px] border-[1.6px] bg-canvas pr-4 pl-[55px] text-base text-ink transition-colors placeholder:text-ink-placeholder focus:outline-none";
+
+/**
+ * Types a birth date into `YYYY-MM-DD` as it is entered.
+ *
+ * Only ever inserts the separators — it does not reorder, reject or complete
+ * anything, so the field never fights someone mid-keystroke and a backspace always
+ * removes what it looks like it removes. Whether the date is real is settled by
+ * `validateDob` on the server, which is the copy that matters.
+ *
+ * Eight digits is the whole date; anything past that is a stray keypress and is
+ * dropped rather than silently changing the year.
+ */
+function formatDob(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  const parts = [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 8)];
+  return parts.filter((part) => part !== "").join("-");
+}
 
 function Field({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
@@ -50,8 +67,10 @@ export function DetailsForm() {
   const router = useRouter();
   const ids = useId();
 
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [dob, setDob] = useState("");
   const [country, setCountry] = useState(DEFAULT_COUNTRY);
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -61,15 +80,6 @@ export function DetailsForm() {
      number, the flag onto the display drawn over the <select>. */
   const selected = CALLING_CODES.find((c) => c.label === country);
   const callingCode = selected?.code ?? DEFAULT_CALLING_CODE;
-
-  useEffect(() => {
-    /* Read the store directly rather than through `useFunnel`, for the same reason
-       the loader does: the hook's first value is the empty server snapshot, which
-       would read as an abandoned quiz and bounce someone who answered everything. */
-    if (missingAnswers(readFunnel().answers).length) {
-      router.replace(STEP_PATHS["quiz-questions"]);
-    }
-  }, [router]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -82,21 +92,36 @@ export function DetailsForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fullName,
+          firstName,
+          lastName,
           email,
+          dob,
           phone: composePhone(callingCode, phone),
         }),
       });
-      const body = (await res.json()) as { phone?: string; error?: string };
+      const body = (await res.json()) as {
+        phone?: string;
+        resendAfter?: number | null;
+        error?: string;
+      };
 
       if (!res.ok) {
         setError(body.error ?? "Something went wrong. Please try again.");
         return;
       }
 
-      // The server's normalised copy, not ours — it's the string the code was
-      // actually texted to, and the one the OTP screen should show.
-      writeFunnel({ phone: body.phone, lastStep: "details" });
+      /* The server's normalised copy, not ours — it's the string the code was
+         actually texted to, and the one the OTP screen should show. `resendAfter`
+         is the API's own cooldown, carried through so the OTP screen counts the
+         real wait rather than a number this side invented; the API enforces it
+         either way, and a shorter local guess just produces a 429. Null when the
+         API's timestamp wouldn't parse; it collapses to undefined so the OTP
+         screen falls back to its own figure rather than storing a dead value. */
+      writeFunnel({
+        phone: body.phone,
+        resendAfter: body.resendAfter ?? undefined,
+        lastStep: "details",
+      });
       router.push(nextPath("details") ?? STEP_PATHS.landing);
     } catch {
       setError("We couldn't reach the server. Check your connection.");
@@ -108,22 +133,50 @@ export function DetailsForm() {
   return (
     <form onSubmit={submit} noValidate className="mt-7">
       <div className="flex flex-col gap-5">
-        <Field icon={<ContactCard />}>
-          <label htmlFor={`${ids}-name`} className="sr-only">
-            Full name
-          </label>
-          <input
-            id={`${ids}-name`}
-            name="name"
-            type="text"
-            autoComplete="name"
-            required
-            placeholder="Full Name"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className={`${FIELD} border-line-soft focus:border-brand`}
-          />
-        </Field>
+        {/* Two fields rather than one "Full Name", because `PATCH /v1/me/profile`
+            stores `first_name` and `last_name` as separate columns and /v1 keeps no
+            combined string beside them. Splitting one field on the first space got
+            anyone with a two-word given name wrong and left them nothing to correct
+            it from — asking for the two parts the record actually has costs one
+            input and removes the guess. Side by side where there is room; a phone
+            stacks them like everything else. */}
+        <div className="flex flex-col gap-5 sm:flex-row">
+          <div className="flex-1">
+            <Field icon={<ContactCard />}>
+              <label htmlFor={`${ids}-first`} className="sr-only">
+                First name
+              </label>
+              <input
+                id={`${ids}-first`}
+                name="given-name"
+                type="text"
+                autoComplete="given-name"
+                required
+                placeholder="First Name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className={`${FIELD} border-line-soft focus:border-brand`}
+              />
+            </Field>
+          </div>
+          <div className="flex-1">
+            <Field icon={<ContactCard />}>
+              <label htmlFor={`${ids}-last`} className="sr-only">
+                Last name
+              </label>
+              <input
+                id={`${ids}-last`}
+                name="family-name"
+                type="text"
+                autoComplete="family-name"
+                placeholder="Last Name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className={`${FIELD} border-line-soft focus:border-brand`}
+              />
+            </Field>
+          </div>
+        </div>
 
         <Field icon={<Envelope />}>
           <label htmlFor={`${ids}-email`} className="sr-only">
@@ -138,6 +191,47 @@ export function DetailsForm() {
             placeholder="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            className={`${FIELD} border-line-soft focus:border-brand`}
+          />
+        </Field>
+
+        {/*
+         * `type="date"` rather than a text box asking for YYYY-MM-DD: it is the only
+         * input that gives back exactly the format `PATCH /v1/me/profile` stores, with
+         * no parsing on either side, and on a phone it opens the OS date picker rather
+         * than a keyboard. The cost is that it shows its own format hint instead of a
+         * placeholder, so the label sits above the field — the one field here that
+         * cannot rely on a placeholder to name itself.
+         *
+         * The native picker button is hidden and the field opens the picker on click,
+         * so it keeps the left-hand icon the other three fields have rather than
+         * carrying a second calendar glyph on its right. `showPicker` throws in
+         * browsers that don't have it, which is fine: those fall back to typing.
+         */}
+        <Field icon={<Calendar />}>
+          <label htmlFor={`${ids}-dob`} className="sr-only">
+            Date of birth
+          </label>
+          <input
+            id={`${ids}-dob`}
+            name="dob"
+            /* Text, not `type="date"`. The native control draws its format hint in
+               the browser's LOCALE order — dd/mm/yyyy here, mm/dd/yyyy in the US —
+               and that string is the input's own value text, not a placeholder, so
+               it takes the field's ink colour and cannot be styled down to
+               `ink-placeholder` like the three fields around it. Neither the order
+               nor the colour is controllable. A text box gives back both, and lets
+               this field name itself with a placeholder the way the others do.
+               What it costs is the OS date picker — no great loss for a birth date,
+               which opens the picker on the current month and makes the visitor
+               page back twenty years. */
+            type="text"
+            inputMode="numeric"
+            autoComplete="bday"
+            required
+            placeholder="Date of Birth (YYYY-MM-DD)"
+            value={dob}
+            onChange={(e) => setDob(formatDob(e.target.value))}
             className={`${FIELD} border-line-soft focus:border-brand`}
           />
         </Field>
@@ -206,8 +300,8 @@ export function DetailsForm() {
               aria-hidden
               className="pointer-events-none flex h-full items-center gap-1.5 rounded-[10px] border-[1.6px] border-line-soft bg-surface pr-1.5 pl-2.5 text-sm font-semibold text-ink-soft transition-colors peer-hover:border-line peer-focus-visible:border-brand"
             >
-              <span className="text-base leading-none">{selected?.flag}</span>
-              +{callingCode}
+              <span className="text-base leading-none">{selected?.flag}</span>+
+              {callingCode}
               <ChevronDown className="size-4 text-ink-faint" />
             </span>
           </div>

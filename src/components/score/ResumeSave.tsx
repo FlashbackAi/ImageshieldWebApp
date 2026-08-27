@@ -6,7 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ShieldMark } from "@/components/ShieldMark";
 import { STEP_PATHS } from "@/lib/funnel";
 import { readFunnel } from "@/lib/funnel-state";
-import { missingAnswers } from "@/lib/quiz";
+import { quizIncomplete, type QuizDefinition } from "@/lib/quiz";
+import { submitAnswers, type SubmitOutcome } from "@/lib/quiz-submit";
 
 /**
  * What the result screen shows a verified visitor with no score on record.
@@ -19,56 +20,35 @@ import { missingAnswers } from "@/lib/quiz";
  *
  * Only if the answers really are gone (a new browser, a cleared tab) is the quiz the
  * honest destination.
+ *
+ * A rarer screen than it used to be. While the quiz came before the phone number the
+ * score write rode along with the OTP verify, so a blip on it stranded someone whose
+ * code was already spent and this was the way out. The submit now happens on its own
+ * screen, after sign-in, with its own retry — so reaching here means the write failed
+ * and the visitor navigated on anyway. Still worth having: the alternative is a score
+ * screen with no score and no way forward.
  */
-type SaveResult =
-  | { ok: true }
-  /* Split out because they go different places: an expired session has to start
-     from the number again, anything else is worth retrying where the user stands. */
-  | { ok: false; expired: boolean; error: string };
-
-/**
- * Outside the component, and returning its outcome rather than setting state, so the
- * effect below can hand the result to React from a callback instead of mid-render.
- */
-async function postAnswers(): Promise<SaveResult> {
-  try {
-    const res = await fetch("/api/quiz", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answers: readFunnel().answers }),
-    });
-
-    if (res.ok) return { ok: true };
-
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    return {
-      ok: false,
-      expired: res.status === 401,
-      error: body.error ?? "We couldn't save your answers.",
-    };
-  } catch {
-    return {
-      ok: false,
-      expired: false,
-      error: "We couldn't reach the server. Check your connection.",
-    };
-  }
-}
-
-export function ResumeSave() {
+export function ResumeSave({ definition }: { definition: QuizDefinition }) {
   const router = useRouter();
   const [failed, setFailed] = useState<string | null>(null);
   /* React runs effects twice in development, and this one POSTs. */
   const started = useRef(false);
 
   const apply = useCallback(
-    (result: SaveResult) => {
+    (outcome: SubmitOutcome) => {
       /* Re-render the server component that sent us here; it reads the score back
          off the record, so this is the whole handoff. */
-      if (result.ok) return router.refresh();
-      // The verified session went while this tab sat here — back to the number.
-      if (result.expired) return router.replace(STEP_PATHS.details);
-      setFailed(result.error);
+      if (outcome.ok) return router.refresh();
+      // The session went while this tab sat here — back to the number.
+      if (outcome.reason === "signed-out") {
+        return router.replace(STEP_PATHS.details);
+      }
+      /* The quiz was edited under this tab. These answers belong to questions that
+         are no longer asked, so retrying the same POST can only fail again. */
+      if (outcome.reason === "retake") {
+        return router.replace(STEP_PATHS["quiz-questions"]);
+      }
+      setFailed(outcome.error);
     },
     [router],
   );
@@ -77,19 +57,19 @@ export function ResumeSave() {
     if (started.current) return;
     started.current = true;
 
-    if (missingAnswers(readFunnel().answers).length) {
+    if (quizIncomplete(definition, readFunnel())) {
       router.replace(STEP_PATHS["quiz-questions"]);
       return;
     }
 
     let live = true;
-    postAnswers().then((result) => {
-      if (live) apply(result);
+    submitAnswers(definition).then((outcome) => {
+      if (live) apply(outcome);
     });
     return () => {
       live = false;
     };
-  }, [apply, router]);
+  }, [apply, definition, router]);
 
   return (
     <div role="status" className="flex flex-col items-center text-center">
@@ -107,7 +87,7 @@ export function ResumeSave() {
             type="button"
             onClick={() => {
               setFailed(null);
-              postAnswers().then(apply);
+              submitAnswers(definition).then(apply);
             }}
             className="mt-8 flex h-14 w-full max-w-[317px] items-center justify-center rounded-full bg-brand text-lg font-semibold text-ink-inverse transition-colors hover:bg-cta"
           >

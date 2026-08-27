@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:api": "node tools/dev-api/server.mjs",
+    "dev:offline": "node tools/dev-offline.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

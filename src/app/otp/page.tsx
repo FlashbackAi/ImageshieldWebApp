@@ -14,12 +14,14 @@ export const metadata: Metadata = {
  * and takes its behaviour from the app's OTPScreen, which is the version of this
  * step users of the product already know.
  *
- * The subtitle used to promise the code expired in 5 minutes. It doesn't: the backend
- * stores it on the user record with no TTL and only clears it once it's been accepted
- * (server.js `saveMobileOTP`). What actually runs out is the funnel's own pending
- * session, at 15 minutes — so that is the number quoted, and it's a limit this side
- * genuinely enforces. The number itself is shown by `OtpForm`, which is the side that
- * holds it.
+ * The 15 minutes in the subtitle is the funnel's own pending window, which is a limit
+ * this side genuinely enforces — the API's challenge carries its own `expires_at`, and
+ * quoting a number we don't control would be a promise we can't keep. Whichever runs
+ * out first, the screen's dead end is the same and it offers a fresh number.
+ *
+ * Nothing to guard against here any more. This screen used to submit the quiz answers
+ * alongside the code, so it had to check they existed first; the questions now come
+ * after this step, and the code buys the session that will read them.
  */
 export default function OtpPage() {
   return (

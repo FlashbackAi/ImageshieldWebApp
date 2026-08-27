@@ -1,23 +1,62 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 import { Check } from "@/components/landing/icons";
 import { nextPath, STEP_PATHS } from "@/lib/funnel";
-import { saveAnswer, toggleAnswer, useFunnel } from "@/lib/funnel-state";
-import { isAsked, QUIZ_QUESTIONS, type QuizAnswers } from "@/lib/quiz";
+import {
+  saveAnswer,
+  syncQuizVersion,
+  toggleAnswer,
+  useFunnel,
+} from "@/lib/funnel-state";
+import { askedQuestions, type QuizDefinition } from "@/lib/quiz";
 import { QuizProgress } from "./QuizProgress";
 
-/** The questions actually on the table — the last one only joins once it's unlocked. */
-function askedQuestions(answers: QuizAnswers) {
-  return QUIZ_QUESTIONS.filter((q) => isAsked(q, answers));
-}
-
-export function QuizFlow() {
+/**
+ * The questions come from `GET /v1/quiz` and are handed down by the page.
+ *
+ * They used to be a constant in this repo, kept in step with the app's copy by hand.
+ * The API validates both the answer keys and the answer values against its own active
+ * definition, so a local copy is a 400 waiting to happen the day someone edits a
+ * question on the server — and the funnel would only find out at submit, after the
+ * visitor had given up their phone number.
+ */
+export function QuizFlow({ definition }: { definition: QuizDefinition }) {
   const router = useRouter();
-  const { answers } = useFunnel();
+  const stored = useFunnel();
   const params = useSearchParams();
 
-  const asked = askedQuestions(answers);
+  /* Answers stored against a retired version are answers to different questions, so
+     they are dropped rather than shown as ticks beside questions nobody was asked.
+
+     The clearing happens in an effect because it writes to the store, and the store
+     is what this component renders from — writing during render would notify
+     subscribers mid-render. The render doesn't wait for it: `live` already ignores
+     answers whose version doesn't match, so the first paint is correct and the
+     effect only makes the storage agree with it. */
+  useEffect(() => {
+    syncQuizVersion(definition.quiz_version);
+  }, [definition.quiz_version]);
+
+  const answers =
+    stored.quizVersion === definition.quiz_version ? stored.answers : {};
+
+  const asked = askedQuestions(definition, answers);
+
+  /* A definition with nothing to ask is not a state this screen can render its way
+     out of, and it should be impossible — but `asked[step - 1]` would be undefined
+     and every line below dereferences it. */
+  if (asked.length === 0) {
+    return (
+      <div className="mx-auto w-full max-w-[600px] px-5 pt-20 pb-24">
+        <p className="text-base text-ink-muted">
+          There are no questions to answer right now. Please try again in a moment.
+        </p>
+      </div>
+    );
+  }
+
   /* 1-based in the URL because it's also what the "(1/6)" label counts. Clamped:
      answering the unlock question "No" on the way back shortens the list under a
      step that was valid a moment ago. */
@@ -36,17 +75,20 @@ export function QuizFlow() {
 
   function pick(option: string) {
     if (question.multi) {
-      toggleAnswer(question.id, option, question.options);
+      toggleAnswer(question.key, option, question.options);
       return;
     }
-    /* Recount off the answer we just wrote, not the render's stale copy: saying
-       "Yes" to the exploitation question adds a question after this one. */
-    const total = askedQuestions(saveAnswer(question.id, option).answers).length;
+    /* Recount off the answer we just wrote, not the render's stale copy: an answer
+       can unlock a question that comes after this one. */
+    const total = askedQuestions(
+      definition,
+      saveAnswer(question.key, option).answers,
+    ).length;
     if (step < total) go(step + 1);
     else router.push(nextPath("quiz-questions") ?? STEP_PATHS.landing);
   }
 
-  const given = answers[question.id];
+  const given = answers[question.key];
   const chosen = new Set(
     Array.isArray(given) ? given : given ? [given] : [],
   );
@@ -67,15 +109,18 @@ export function QuizFlow() {
         {/* 24/36 Bold in flat black — the funnel's usual heading size and weight,
             in the same black the option labels underneath use. */}
         <h1 className="mt-[16px] text-[24px] leading-9 font-bold text-black">
-          {question.question}
+          {question.prompt}
         </h1>
 
         {/* 14/21 regular in black at 45% — a qualifier on the question rather
             than copy in its own right. The translucent black is the design's
-            own value, and it sits a touch lighter than `ink-faint` would. */}
-        {question.hint ? (
+            own value, and it sits a touch lighter than `ink-faint` would.
+            The definition carries no hint field, so this is derived the way the
+            deployed web client derives it: multi-select is the only thing a
+            question needs explaining about. */}
+        {question.multi ? (
           <p className="mt-[9px] text-[14px] leading-[21px] text-black/45">
-            {question.hint}
+            Select all that apply
           </p>
         ) : null}
 

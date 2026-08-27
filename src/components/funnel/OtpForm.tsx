@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { backPath, nextPath, STEP_PATHS } from "@/lib/funnel";
 import { readFunnel, useFunnel } from "@/lib/funnel-state";
-import { missingAnswers } from "@/lib/quiz";
 
 /**
  * The six-digit code, ported from the app's OTPScreen.
@@ -15,40 +14,37 @@ import { missingAnswers } from "@/lib/quiz";
  * code verifies itself rather than waiting for a tap on a button — QC flagged that
  * last one on mobile as needless friction, and it is the same friction here.
  *
- * The verify call is also where the answers are submitted. That is the server's
- * design, not a convenience: verifying and writing happen in one request so there
- * is no window in which a half-verified session can write to the user record.
+ * Two states now, where there were three. This screen used to submit the quiz answers
+ * along with the code, which meant it had to handle the case where the code was
+ * ACCEPTED and the write after it failed — a dead end with nothing to retype, because
+ * the challenge was spent. The questions now come after this step, so the code buys a
+ * session and nothing else; a score write that fails later has that session to retry
+ * against and never costs anyone their code.
  *
- * Three states, because the code is only the first of them:
- *
- *   code         typing, resending, verifying — the screen as drawn.
- *   save-failed  the code was ACCEPTED and the write after it wasn't. `/verify-otp`
- *                clears the code it accepts, so there is nothing to retype here; the
- *                retry goes to `/api/quiz` against the now-verified session. This
- *                screen used to offer the digits again and answer "that code isn't
- *                right" — true, and the most misleading thing it could have said.
- *   expired      the pending session is gone (15 minutes), so neither verifying nor
- *                resending can work — both answer 401. The only way on is a new
- *                number, so that is the only thing offered.
- */
-const LENGTH = 6;
-const RESEND_COOLDOWN_S = 60;
+ *   code     typing, resending, verifying — the screen as drawn.
+ *   expired  the pending challenge cookie is gone (15 minutes), so neither verifying
+ *            nor resending can work — both answer 401. The only way on is a new
+ *            number, so that is the only thing offered.
+ */const LENGTH = 6;
+
+/** Only used until the API has told us its own cooldown — `/api/otp/start` relays
+ *  `resend_after`, and that is the number the API will actually enforce. */
+const FALLBACK_COOLDOWN_S = 60;
 
 const EMPTY = Array<string>(LENGTH).fill("");
 
-type Stage = "code" | "save-failed" | "expired";
+type Stage = "code" | "expired";
 
 export function OtpForm() {
   const router = useRouter();
-  const { phone } = useFunnel();
+  const { phone, resendAfter } = useFunnel();
 
   const [digits, setDigits] = useState<string[]>(EMPTY);
   const [stage, setStage] = useState<Stage>("code");
   const [error, setError] = useState<string | null>(null);
-  /** Covers the verify and the save-retry alike — they're the same wait to a user. */
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_S);
+  const [cooldown, setCooldown] = useState(resendAfter ?? FALLBACK_COOLDOWN_S);
 
   const boxes = useRef<Array<HTMLInputElement | null>>([]);
   /* Guards the auto-submit against a double fire. The server counts every wrong
@@ -59,13 +55,8 @@ export function OtpForm() {
   const code = digits.join("");
 
   useEffect(() => {
-    const funnel = readFunnel();
-    if (missingAnswers(funnel.answers).length) {
-      router.replace(STEP_PATHS["quiz-questions"]);
-      return;
-    }
     // No number means the details step never completed, so no code was ever sent.
-    if (!funnel.phone) {
+    if (!readFunnel().phone) {
       router.replace(STEP_PATHS.details);
       return;
     }
@@ -78,36 +69,6 @@ export function OtpForm() {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  /** Saves the answers against a session that has already proved its number. */
-  const save = useCallback(async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/quiz", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers: readFunnel().answers }),
-      });
-      const body = (await res.json()) as { error?: string };
-
-      if (!res.ok) {
-        if (res.status === 401) {
-          setStage("expired");
-          setError(body.error ?? "Your session expired. Start again.");
-          return;
-        }
-        setError(body.error ?? "We couldn't save your answers.");
-        return;
-      }
-
-      router.push(nextPath("otp") ?? STEP_PATHS.landing);
-    } catch {
-      setError("We couldn't reach the server. Check your connection.");
-    } finally {
-      setBusy(false);
-    }
-  }, [router]);
-
   const verify = useCallback(
     async (entered: string) => {
       if (submitted.current === entered) return;
@@ -119,15 +80,9 @@ export function OtpForm() {
         const res = await fetch("/api/otp/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            code: entered,
-            answers: readFunnel().answers,
-          }),
+          body: JSON.stringify({ code: entered }),
         });
-        const body = (await res.json()) as {
-          error?: string;
-          verified?: boolean;
-        };
+        const body = (await res.json()) as { error?: string };
 
         if (!res.ok) {
           /* The session went before the code came back. Retyping and resending both
@@ -135,14 +90,6 @@ export function OtpForm() {
           if (res.status === 401) {
             setStage("expired");
             setError(body.error ?? "Your code expired. Start again.");
-            return;
-          }
-
-          /* The code was right; the write after it failed. The code is spent either
-             way, so the retry is the write on its own. */
-          if (body.verified) {
-            setStage("save-failed");
-            setError(body.error ?? "We couldn't save your answers.");
             return;
           }
 
@@ -224,7 +171,10 @@ export function OtpForm() {
          never held the name and email. The number is enough to re-send: the pending
          session cookie still carries the rest. */
       const res = await fetch("/api/otp/resend", { method: "POST" });
-      const body = (await res.json()) as { error?: string };
+      const body = (await res.json()) as {
+        error?: string;
+        resendAfter?: number | null;
+      };
       if (!res.ok) {
         if (res.status === 401) {
           setStage("expired");
@@ -237,7 +187,7 @@ export function OtpForm() {
       setDigits(EMPTY);
       submitted.current = undefined;
       boxes.current[0]?.focus();
-      setCooldown(RESEND_COOLDOWN_S);
+      setCooldown(body.resendAfter ?? FALLBACK_COOLDOWN_S);
     } catch {
       setError("We couldn't reach the server. Check your connection.");
     } finally {
@@ -274,41 +224,6 @@ export function OtpForm() {
         >
           Enter your number again
         </Link>
-      </div>
-    );
-  }
-
-  if (stage === "save-failed") {
-    return (
-      <div className="mt-7">
-        {/* Says what is and isn't done, because the difference is the whole reason
-            this state exists: the number is verified, the answers are not saved,
-            and nothing the user does with a code can change either. */}
-        <p className="text-base text-ink">
-          Your number is verified — we just couldn&apos;t save your answers.
-        </p>
-        <p className="mt-3 text-[14px] leading-[21px] text-black/45">
-          Nothing has been lost. Try again and we&apos;ll finish scoring your quiz.
-        </p>
-
-        <div aria-live="polite" className="mt-4 min-h-6 text-sm">
-          {error ? (
-            <p role="alert" className="text-danger">
-              {error}
-            </p>
-          ) : busy ? (
-            <p className="text-ink-muted">Saving…</p>
-          ) : null}
-        </div>
-
-        <button
-          type="button"
-          onClick={save}
-          disabled={busy}
-          className="mt-8 flex h-14 w-full items-center justify-center rounded-full bg-brand text-base font-semibold text-ink-inverse transition-colors hover:bg-cta disabled:opacity-40 sm:w-[317px]"
-        >
-          {busy ? "Saving…" : "Try again"}
-        </button>
       </div>
     );
   }

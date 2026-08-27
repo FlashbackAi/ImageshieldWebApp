@@ -1,104 +1,103 @@
 import "server-only";
 
-import { backendFetch } from "./api";
-import { splitName } from "./contact";
 import type { QuizAnswers } from "./quiz";
-import type { FunnelSession } from "./session";
+import type { ScoreEnvelope } from "./score";
+import type { Me } from "./v1/me";
+import { patchProfile, setEmail } from "./v1/profile";
+import { submitQuizResponses } from "./v1/quiz";
 
 /**
- * The funnel's two writes onto the shared user record — the score, and the lead
- * behind it.
+ * The funnel's two writes onto the person record — the score, and the lead behind it.
  *
  * They live here rather than inside `/api/otp/verify` because the verify request is
- * no longer the only place they happen. `/verify-otp` clears the stored code the
- * moment it accepts one (server.js `saveMobileOTP` sets `otp: null`), so a code is
- * good exactly once: if the write after it fails, re-sending the same six digits
- * cannot possibly work. `/api/quiz` retries the write against the already-verified
- * session instead, and both routes go through these two functions so there is one
- * definition of what the funnel puts on the record.
+ * no longer the only place they happen. A /v1 challenge is spent the moment it is
+ * accepted and its attempts are capped, so a code is good exactly once: if a write
+ * after it fails, re-sending the same six digits cannot possibly work. `/api/quiz`
+ * retries the write against the already-authenticated session instead, and both
+ * routes go through these two functions so there is one definition of what the
+ * funnel puts on the record.
  */
-export type QuizSaved = {
-  score: number;
-  riskLevel: string;
-  breakdown: unknown[];
-  activeReportsCount: number;
-};
-
-type QuizResponse = QuizSaved & { success: boolean };
 
 /**
- * Scores the answers onto the mobile user record, which is what the app reads back.
+ * Scores the answers onto the person record.
  *
- * Throws on failure — what that costs the user is the caller's call, and it differs:
- * mid-verify it is a 502 the client can retry, in `/api/quiz` it is the whole
- * request.
+ * Throws on failure — what that costs the visitor is the caller's call, and it
+ * differs: mid-verify it is a 502 the client can retry, in `/api/quiz` it is the
+ * whole request.
  */
 export async function saveQuizAnswers(
-  phone: string,
+  quizVersion: string,
   answers: QuizAnswers,
-): Promise<QuizSaved> {
-  const quiz = await backendFetch<QuizResponse>("/api/likeness-health-quiz", {
-    method: "POST",
-    // Bare, no `+`, exactly as the app's quizSync posts it. The backend puts the
-    // `+` back either way; sending the same bytes keeps the two clients from
-    // drifting apart if that ever stops being true.
-    body: JSON.stringify({
-      userPhone: phone.replace(/\+/g, ""),
-      answers,
-    }),
-  });
-
-  return {
-    score: quiz.score,
-    riskLevel: quiz.riskLevel,
-    breakdown: quiz.breakdown,
-    activeReportsCount: quiz.activeReportsCount,
-  };
+): Promise<ScoreEnvelope> {
+  return submitQuizResponses(quizVersion, answers);
 }
 
 /**
- * The lead's name and email, onto the same record.
+ * The lead's name, date of birth and email, onto the same record.
  *
  * Never fatal, and deliberately attempted BEFORE the score: the score can be retried
- * from the client afterwards, but the name and email only exist in the session cookie
- * for as long as that cookie does. Saving them first means a backend blip on the
- * quiz write costs the lead nothing.
+ * from the client afterwards, but the name and email only exist in the pre-verification
+ * cookie for as long as that cookie does. Saving them first means a blip on the quiz
+ * write costs the lead nothing.
  *
- * `/update-profile` also sets `profileCompleted: true`, and the app treats that as
- * "onboarding finished" (SplashScreen line 114, OTPScreen line 152). So a lead who
- * came through the web and later installs the app lands on the Dashboard without
- * being asked for a selfie, and has to add one from Settings. That is a known and
- * accepted trade for capturing the lead against the record the app actually reads —
- * the alternative was a mobile-side change to also require `selfieUploaded`.
+ * Two calls rather than one, because /v1 splits them and rejects a body that mixes
+ * them. The profile patch goes first: if the email call then fails, the name is
+ * already saved and the retry is the email alone.
+ *
+ * The email is only sent when it differs from what is on record, and that is not a
+ * micro-optimisation — `POST /v1/me/email` SENDS A VERIFICATION MAIL every time it
+ * is called. A returning visitor who re-runs the funnel with the same address would
+ * otherwise be mailed a fresh link for no reason.
+ *
+ * Worth stating plainly, because it is new: on the legacy backend the funnel's
+ * `/update-profile` also set `profileCompleted`, which the app read as "onboarding
+ * finished" and used to skip the selfie step. /v1 keeps its own `onboarding` block
+ * and this write only fills in a name — so a web lead who installs the app now lands
+ * on whatever step the server says is next, which is what should have happened all
+ * along.
  *
  * Returns whether it landed, which the verify response passes back for whoever is
  * counting leads.
  */
-export async function saveLead(session: FunnelSession): Promise<boolean> {
+export async function saveLead(
+  contact: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    dob: string;
+  },
+  me: Me | null,
+): Promise<boolean> {
   try {
-    const { firstName, lastName } = splitName(session.fullName);
-    await backendFetch("/update-profile", {
-      method: "POST",
-      /* Exactly the fields ProfileSetupScreen sends, and no more. The handler also
-         destructures `employer` and `school`, so leaving them off spreads them in
-         as undefined over the existing record — whatever that does to an app user
-         who had filled them in, it already does when they edit their name in the
-         app (PersonalInfoScreen omits them too). Matching the app's payload keeps
-         the web from being the odd one out; it does not fix that. */
-      body: JSON.stringify({
-        phone: session.phone,
-        firstName,
-        lastName,
-        email: session.email,
-        fullName: session.fullName,
-      }),
+    /* Only the keys we mean to change. The API builds the update from the keys it
+       receives, so sending a field as undefined would blank it — and `employer_name`,
+       `occupation` and `school_name` are things an existing app user may well have
+       filled in. The legacy funnel spread them in as undefined on every save; this
+       does not, which quietly fixes a way the web could wipe an app user's details. */
+    await patchProfile({
+      /* Collected as two fields, which is what `PATCH /v1/me/profile` stores. The
+         form used to ask for one "Full Name" and this split it on the first space —
+         wrong for anyone whose given name is two words, and lossy besides, since /v1
+         has no field to keep the original string in. Asking for the two parts the
+         record actually has removes the guess entirely. */
+      first_name: contact.firstName,
+      last_name: contact.lastName,
+      /* Already `YYYY-MM-DD` — `validateContact` rejects anything else, so there is
+         nothing to format here and no chance of sending a date the API will refuse. */
+      date_of_birth: contact.dob,
     });
+
+    const wanted = contact.email.trim();
+    const onRecord = me?.person.email?.trim() ?? "";
+    if (wanted !== "" && wanted.toLowerCase() !== onRecord.toLowerCase()) {
+      await setEmail(wanted);
+    }
+
     return true;
   } catch (error) {
-    console.error("lead save failed", {
-      phone: session.phone,
-      message: (error as Error).message,
-    });
+    // No phone in this log line: /v1 has no phone-keyed anything, and the session
+    // this ran under is what identifies the record — not something to print.
+    console.error("lead save failed", (error as Error).message);
     return false;
   }
 }

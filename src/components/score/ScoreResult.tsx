@@ -1,8 +1,8 @@
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import type { Handoff } from "@/lib/handoff";
 import {
+  bandLabel,
   type FactorIcon,
-  riskLabel,
   riskLevelOf,
   type RiskLevel,
   type ScoreRecord,
@@ -34,24 +34,36 @@ const FACTOR_ICONS: Record<FactorIcon, (props: { className?: string }) => React.
   wand: Wand,
 };
 
-/** The result screen. Everything on it comes off the stored record. */
+/**
+ * The result screen. Everything on it comes off the stored record.
+ *
+ * `prompts` maps a breakdown key to the question it was asked as, from the same quiz
+ * definition the visitor answered. It is only a fallback: a factor the presentation
+ * table recognises gets the marketing copy, and one it doesn't gets the real question
+ * instead of a raw key like `content_type`.
+ */
 export function ScoreResult({
   record,
   handoff,
+  prompts,
 }: {
   record: ScoreRecord;
   handoff: Handoff;
+  prompts?: ReadonlyMap<string, string>;
 }) {
-  const level = riskLevelOf(record);
-  const label = riskLabel(level);
-  const factors = topFactors(record.breakdown);
+  const { score } = record;
+  const level = riskLevelOf(score);
+  /* The band the API served, rendered as it came. Not derived from the number: the
+     API owns the thresholds and says so, and this screen's drawn scale deliberately
+     doesn't match them (see ../../lib/score.ts). */
+  const label = bandLabel(score);
+  const factors = topFactors(score.breakdown.quiz, prompts);
   /* The score is a health score — 100 is safest — so the share of comparable people
-     who have been hit reads as its complement. The backend does not supply a real
-     cohort figure; the design hardcodes "50%" beside a score of 49, which is what
-     this reproduces. Swap it the moment there is a number to swap it for. */
-  const cohort = 100 - record.score;
-  /* Only the first name, as the design has it. */
-  const firstName = record.fullName.trim().split(/\s+/)[0];
+     who have been hit reads as its complement. The API does not supply a real cohort
+     figure; the design hardcodes "50%" beside a score of 49, which is what this
+     reproduces. Swap it the moment there is a number to swap it for. */
+  const cohort = 100 - score.live;
+  const firstName = record.firstName;
 
   return (
     /* Inter, like the rest of the marketing site — and the headline needs a real
@@ -66,7 +78,7 @@ export function ScoreResult({
         </h1>
 
         <div className="mt-8 w-full max-w-[300px]">
-          <ScoreGauge score={record.score} level={level} />
+          <ScoreGauge score={score.live} level={level} band={score.band} />
         </div>
 
         {/* Capped at the design's own measure so it breaks after "risk of", not
@@ -79,9 +91,28 @@ export function ScoreResult({
         </h2>
 
         <p className="mt-6 max-w-[680px] text-lg leading-7 text-ink-soft lg:mt-[37px] lg:text-xl lg:leading-7">
-          A Likeness Health Score of {record.score} indicates that you are at a{" "}
-          {label} risk for likeness theft and misuse online. {cohort}% of the people
+          A Likeness Health Score of {score.live} indicates that you are at{" "}
+          {score.band} for likeness theft and misuse online. {cohort}% of the people
           similar to you have experienced likeness theft.
+        </p>
+
+        {/* The ceiling, which is new and is not cosmetic: a fresh account cannot
+            reach 100 yet, so a score of 62 out of a ceiling of 70 is a very
+            different thing from 62 out of 100. Saying so is what stops the number
+            reading as a worse result than it is. */}
+        {score.current_ceiling < score.maximum_ceiling ? (
+          <p className="mt-4 max-w-[680px] text-base leading-6 text-ink-muted">
+            You&apos;re at {score.live} of a possible {score.current_ceiling} today —
+            your ceiling rises to {score.maximum_ceiling} after{" "}
+            {score.breakdown.escrow.next_milestone_days ?? 90} days of monitoring.
+          </p>
+        ) : null}
+
+        {/* Attached to every score response by the API, and meant to be shown: the
+            score is likeness-protection health in MONITORED SOURCES. It is never
+            "you're safe", never "across the web", and 100 is never an all-clear. */}
+        <p className="mt-4 max-w-[680px] text-sm leading-5 text-ink-faint">
+          {record.scopeNote}
         </p>
 
         <h2 className="mt-16 text-[28px] font-bold text-ink lg:mt-[53px] lg:text-[38px]">

@@ -8,7 +8,14 @@ export const metadata: Metadata = {
     "Tell us where to send your Likeness Health Score. We won't share your information with anyone.",
 };
 
-/** Full name, email and phone. Submitting it sends the verification code. */
+/**
+ * Full name, email and phone. Submitting it sends the verification code.
+ *
+ * Now the step before the questions rather than after them, so there is nothing to
+ * guard here: a visitor arriving with no answers is exactly what is expected. It used
+ * to load the quiz definition purely to check they had finished, which is no longer a
+ * thing that can have happened by this point.
+ */
 export default function DetailsPage() {
   return (
     <FunnelShell

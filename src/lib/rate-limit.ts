@@ -86,6 +86,26 @@ function clientIp(request: Request): string {
 }
 
 /**
+ * A limit counted against the caller's address, for routes with no better key.
+ *
+ * `allowOtpSend` has a phone number to count against; the routes behind a /v1 session
+ * have nothing of the sort — the API takes no identifier and this side deliberately
+ * stops holding a phone number once a session exists. The address is what is left,
+ * and it is the same forgery-resistant entry the OTP caps use.
+ *
+ * `name` separates one route's bucket from another's, so a visitor retrying a score
+ * write doesn't spend their allowance for requesting codes.
+ */
+export function allowPerIp(
+  request: Request,
+  name: string,
+  limit: number,
+  windowMs: number,
+): boolean {
+  return allow(`${name}:ip:${clientIp(request)}`, limit, windowMs);
+}
+
+/**
  * Ceiling on OTPs sent across the whole site per hour.
  *
  * The per-phone and per-IP caps both key on something the caller influences; this one

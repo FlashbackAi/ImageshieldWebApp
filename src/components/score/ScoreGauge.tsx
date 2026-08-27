@@ -5,7 +5,6 @@ import {
   GAUGE_TRACK,
   gaugeFill,
   gaugePoint,
-  riskLabel,
   type RiskLevel,
 } from "@/lib/score";
 
@@ -84,9 +83,16 @@ const BOX = { x: -150, y: -150, width: 300, height: 256 } as const;
 export function ScoreGauge({
   score,
   level,
+  band,
 }: {
   score: number;
+  /** Which of the three DRAWN bands to colour the arc in. */
   level: RiskLevel;
+  /** The band string the API served, for the accessible name. Passed rather than
+   *  derived from `level` so a screen reader hears the same words a sighted visitor
+   *  reads — the API has four bands and this scale draws three, so `level` alone
+   *  would announce "high risk" for a score the response called "severe risk". */
+  band: string;
 }) {
   const value = Math.min(Math.max(score, 0), 100);
   const theme = GAUGE_THEMES[level];
@@ -99,7 +105,7 @@ export function ScoreGauge({
       /* x spans the full outer diameter; y stops just under the lower captions. */
       viewBox="-150 -150 300 256"
       role="img"
-      aria-label={`Likeness Health Score ${value} out of 100 — ${riskLabel(level)} risk`}
+      aria-label={`Likeness Health Score ${value} out of 100 — ${band}`}
       className="w-full max-w-[300px]"
     >
       <defs>

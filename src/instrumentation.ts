@@ -3,7 +3,7 @@
  *
  * `register` runs once per server instance and must finish before any request is
  * served, which makes it the one place a misconfiguration can be caught while it is
- * still cheap. Without it the first sign of a missing `BACKEND_URL` or a placeholder
+ * still cheap. Without it the first sign of a missing `IMAGESHIELD_API_URL` or a placeholder
  * `FUNNEL_SECRET` is a failed request from a real visitor mid-funnel.
  *
  * Throwing here is deliberate: a server that cannot sign session cookies safely should

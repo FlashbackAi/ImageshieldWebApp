@@ -7,10 +7,10 @@
 const FUNNEL_STEPS = [
   "landing",
   "quiz",
-  "quiz-questions",
-  "calculating",
   "details",
   "otp",
+  "quiz-questions",
+  "calculating",
   "score",
 ] as const;
 
@@ -18,15 +18,22 @@ export type FunnelStep = (typeof FUNNEL_STEPS)[number];
 
 export const STEP_PATHS: Record<FunnelStep, string> = {
   landing: "/",
-  /* "Take the Quiz" lands on the intro, which hands off to the questions. */
+  /* "Take the Quiz" lands on the intro: marketing copy explaining what the quiz is.
+     No API behind it, which is why it stays in front of the form. */
   quiz: "/quiz",
-  "quiz-questions": "/quiz/questions",
-  /* The loader runs before we have a phone number, so it can only animate — the
-     real score comes back from /api/otp/verify once the details are in. */
-  calculating: "/calculating",
   /* Full name, email, phone. Submitting it sends the code. */
   details: "/details",
   otp: "/otp",
+  /* The questions themselves, and the reason the order is what it is: they are
+     rendered from `GET /v1/quiz`, which the API answers only to a session. Asking
+     them after sign-in is what lets the funnel read the live definition instead of
+     guessing at one — and answers to a guessed quiz are rejected at submit, which
+     would fail at the END of the funnel rather than the start. */
+  "quiz-questions": "/quiz/questions",
+  /* Where the answers are actually submitted and the score computed. It is a real
+     wait now, not a staged one: the phone number is already verified by this point,
+     so there is a session to write with. */
+  calculating: "/calculating",
   /* Score, QR and the store links: one screen, fed by /api/score. */
   score: "/score",
 };
