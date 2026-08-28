@@ -21,7 +21,16 @@ function Glyph({
   width,
   height,
   d,
-}: IconProps & { viewBox: string; width: number; height: number; d: string }) {
+  evenOdd,
+}: IconProps & {
+  viewBox: string;
+  width: number;
+  height: number;
+  d: string;
+  /** For a glyph drawn as an outline: the ring is one contour inside another, and
+   *  the default nonzero rule would flood the gap between them. */
+  evenOdd?: boolean;
+}) {
   return (
     <svg
       viewBox={viewBox}
@@ -31,7 +40,7 @@ function Glyph({
       aria-hidden
       className={className}
     >
-      <path d={d} />
+      <path d={d} fillRule={evenOdd ? "evenodd" : undefined} />
     </svg>
   );
 }
@@ -166,6 +175,41 @@ export function Wand({ className }: IconProps) {
       width={18}
       height={19}
       d="M0,19V17H12V19H0ZM5.65,14.15L0,8.5L2.1,6.35L7.8,12L5.65,14.15ZM12,7.8L6.35,2.1L8.5,0L14.15,5.65L12,7.8ZM16.6,18L3.55,4.95L4.95,3.55L18,16.6L16.6,18Z"
+    />
+  );
+}
+
+/* ── Immediate Recommendations ────────────────────────────────────────────────
+ *
+ * Both are drawn as outlines rather than solids, which is what the results export
+ * shows and why `Glyph` needed an even-odd rule: each is a ring — one contour inside
+ * another — and the nonzero default fills the gap between them.
+ */
+
+/** YouTube's play badge — the likeness-detection recommendation. */
+export function PlayBadge({ className }: IconProps) {
+  return (
+    <Glyph
+      className={className}
+      viewBox="0 0 28 20"
+      width={28}
+      height={20}
+      evenOdd
+      d="M27.4 4.2c-.32-1.2-1.27-2.15-2.47-2.47C22.76 1.2 14 1.2 14 1.2s-8.76 0-10.93.53C1.87 2.05.92 3 .6 4.2.07 6.37.07 10 .07 10s0 3.63.53 5.8c.32 1.2 1.27 2.15 2.47 2.47C5.24 18.8 14 18.8 14 18.8s8.76 0 10.93-.53c1.2-.32 2.15-1.27 2.47-2.47.53-2.17.53-5.8.53-5.8s0-3.63-.53-5.8Zm-24.9.72c.16-.6.63-1.07 1.23-1.23C5.5 3.28 14 3.28 14 3.28s8.5 0 10.27.41c.6.16 1.07.63 1.23 1.23.4 1.72.4 5.08.4 5.08s0 3.36-.4 5.08c-.16.6-.63 1.07-1.23 1.23-1.77.41-10.27.41-10.27.41s-8.5 0-10.27-.41c-.6-.16-1.07-.63-1.23-1.23C2.1 13.36 2.1 10 2.1 10s0-3.36.4-5.08ZM11.2 14.2 18.48 10 11.2 5.8v8.4Z"
+    />
+  );
+}
+
+/** Padlock — the keep-your-accounts-private recommendation. */
+export function Lock({ className }: IconProps) {
+  return (
+    <Glyph
+      className={className}
+      viewBox="0 0 18 22"
+      width={18}
+      height={22}
+      evenOdd
+      d="M3 22c-.55 0-1.02-.2-1.41-.59C1.2 21.02 1 20.55 1 20V10c0-.55.2-1.02.59-1.41C1.98 8.2 2.45 8 3 8h1V6c0-1.38.49-2.56 1.46-3.54C6.44 1.49 7.62 1 9 1s2.56.49 3.54 1.46C13.51 3.44 14 4.62 14 6v2h1c.55 0 1.02.2 1.41.59.39.39.59.86.59 1.41v10c0 .55-.2 1.02-.59 1.41-.39.39-.86.59-1.41.59H3Zm0-2h12V10H3v10ZM6 8h6V6c0-.83-.29-1.54-.88-2.12C10.54 3.29 9.83 3 9 3s-1.54.29-2.12.88C6.29 4.46 6 5.17 6 6v2ZM9 16.2c.33 0 .61-.12.85-.35.23-.24.35-.52.35-.85s-.12-.61-.35-.85a1.16 1.16 0 0 0-.85-.35c-.33 0-.61.12-.85.35-.23.24-.35.52-.35.85s.12.61.35.85c.24.23.52.35.85.35Z"
     />
   );
 }

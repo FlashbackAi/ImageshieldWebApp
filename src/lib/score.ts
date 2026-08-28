@@ -290,6 +290,35 @@ export function gaugePoint(degrees: number, radius: number = GAUGE.radius) {
   return { x: radius * Math.cos(rad), y: radius * Math.sin(rad) };
 }
 
+/**
+ * The scale printed under the gauge.
+ *
+ * The three DRAWN bands and their ranges, which is the same scale the arc is divided
+ * at — 0–49, 50–79, 80–100 — and not the API's four-band table. It is a key to the
+ * picture above it, so it has to agree with the picture; the headline beside it is
+ * where the served band is stated, and that remains the authoritative one. See the
+ * note on BAND_LEVELS for why the two are deliberately allowed to differ.
+ *
+ * The colours are the flat band inks rather than the arc's gradients — a 2px rule
+ * painted with a gradient that fades to transparent would simply disappear.
+ */
+export const RISK_LEGEND: ReadonlyArray<{
+  level: RiskLevel;
+  label: string;
+  range: string;
+  /** CSS colour, so the rule can be painted without an interpolated class name. */
+  colour: string;
+}> = [
+  { level: "low", label: "Low Risk", range: "80–100", colour: "var(--color-risk-low)" },
+  {
+    level: "moderate",
+    label: "Moderate Risk",
+    range: "50–79",
+    colour: "var(--color-risk-moderate)",
+  },
+  { level: "high", label: "High Risk", range: "0–49", colour: "var(--color-risk-high)" },
+];
+
 /* ── What affected your score ────────────────────────────────────────────────
  *
  * The design shows three cards, and a real breakdown has as many entries as the
@@ -328,17 +357,20 @@ const FACTOR_PRESENTATION: ReadonlyArray<{
     title: "Age",
     icon: "calendar",
     description:
-      "Your demographic profile shows a higher frequency of targeted likeness harvesting.",
+      "Adults 19–35 account for 75% of deepfake victims globally. Your age bracket is the highest risk demographic",
   },
   {
     aliases: ["gender"],
     title: "Gender",
     icon: "venus",
     description:
-      "Statistical models indicate specific risk vectors based on gender-based deepfake trends.",
+      "96% of non-consensual deepfake content targets women. Gender is one of the strongest predictors of targeting risk",
   },
   {
     aliases: [
+      /* `privacy` is the live quiz's own key for this question, and its absence
+         showed up as the card falling back to the raw prompt. */
+      "privacy",
       "visibility",
       "profilevisibility",
       "accountprivacy",
@@ -364,11 +396,16 @@ const FACTOR_PRESENTATION: ReadonlyArray<{
       "The kind of content you share changes how valuable your likeness is to the people collecting it.",
   },
   {
-    aliases: ["contentquantity", "contentvolume", "postingfrequency"],
-    title: "Content Volume",
-    icon: "wand",
+    aliases: [
+      "contentquantity",
+      "contentvolume",
+      "postingfrequency",
+      "postingvolume",
+    ],
+    title: "Social activity",
+    icon: "globe",
     description:
-      "Every image you post online widens the pool of source material a model can be trained on.",
+      "Regular public posting increases your likeness exposure 5×. Your social footprint puts you at a higher risk of having your likeness harvested.",
   },
   {
     aliases: ["pastexploitation", "priormisuse", "confirmedtakedown"],

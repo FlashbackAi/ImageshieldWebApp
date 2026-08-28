@@ -61,12 +61,14 @@
    * The gauge's ARC does not use these: it's a gradient per band, and those stops
    * live in `lib/score.ts` where they're copied from the app's ScoreGauge.
    *
-   * `moderate` and `low` are the app's own score-legend colours, so a lead who
-   * installs the app doesn't see their band change colour. `high` is the web
-   * design's #E44625 rather than the app's #FF3B5C — the export for this screen
-   * specifies it, and it's the one this screen was drawn with.
+   * All three are the app's own score-legend colours, so a lead who installs the
+   * app doesn't see their band change colour. `high` was #E44625 for a while, from
+   * an earlier export of the result screen; the LHS Results V1 export sets both the
+   * headline's risk word and the scale rule under the gauge to #FF3B5C, which is
+   * also what the app has always used — so the divergence is gone rather than
+   * merely swapped.
    */
-  --color-risk-high: #e44625;
+  --color-risk-high: #ff3b5c;
   --color-risk-moderate: var(--color-warning);
   --color-risk-low: var(--color-success);
 

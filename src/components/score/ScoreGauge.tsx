@@ -27,25 +27,20 @@ import {
  * Scale labels, positioned as measured off the design rather than derived.
  *
  * The two middle ticks are pushed radially out of their gaps, but 0 and 100 are not
- * — they sit directly *under* the arc's tips, inside the outer radius, with the risk
- * captions under them again. One formula can't produce both, so these are points.
+ * — they sit directly *under* the arc's tips, inside the outer radius. One formula
+ * can't produce both, so these are points.
+ *
+ * The "High Risk" / "Low Risk" captions that used to sit under 0 and 100 are gone:
+ * the LHS Results V1 export moves that key out of the drawing and into the printed
+ * scale below the whole gauge, where it can name all three bands and their ranges
+ * rather than only the two ends. See `ScoreScale`.
  */
-const TICKS: ReadonlyArray<{
-  value: string;
-  x: number;
-  y: number;
-  /** Only the two ends of the scale are captioned. */
-  caption?: string;
-  captionX?: number;
-}> = [
-  { value: "0", x: -118, y: 85, caption: "High Risk", captionX: -111 },
+const TICKS: ReadonlyArray<{ value: string; x: number; y: number }> = [
+  { value: "0", x: -118, y: 85 },
   { value: "50", x: -127, y: -129.5 },
   { value: "80", x: 127, y: -129.5 },
-  { value: "100", x: 118, y: 85, caption: "Low Risk", captionX: 112 },
+  { value: "100", x: 118, y: 78 },
 ];
-
-/** Baseline the two risk captions share, under their tick. */
-const CAPTION_Y = 103;
 
 /**
  * Width of the white slot cut at each band boundary.
@@ -77,8 +72,14 @@ function Tip({ degrees }: { degrees: number }) {
   return <circle cx={at.x} cy={at.y} r={GAUGE.stroke / 2} fill="#fff" />;
 }
 
-/** The viewBox, repeated as numbers for the mask and the panel it reveals. */
-const BOX = { x: -150, y: -150, width: 300, height: 256 } as const;
+/**
+ * The viewBox, repeated as numbers for the mask and the panel it reveals.
+ *
+ * 240 tall rather than 256: with the risk captions moved out to `ScoreScale`, the
+ * lowest thing drawn is the 0 / 100 tick row, and the leftover strip underneath was
+ * pushing the printed scale away from the arc it belongs to.
+ */
+const BOX = { x: -150, y: -150, width: 300, height: 240 } as const;
 
 export function ScoreGauge({
   score,
@@ -103,10 +104,10 @@ export function ScoreGauge({
   return (
     <svg
       /* x spans the full outer diameter; y stops just under the lower captions. */
-      viewBox="-150 -150 300 256"
+      viewBox="-150 -150 300 240"
       role="img"
       aria-label={`Likeness Health Score ${value} out of 100 — ${band}`}
-      className="w-full max-w-[300px]"
+      className="w-full"
     >
       <defs>
         {/* Vertical across the gauge, as the app defines them: y1 = cy − R, y2 = cy + R. */}
@@ -187,21 +188,26 @@ export function ScoreGauge({
       })}
 
       {/* The numeral sits a little above the arc's centre, where the design puts it. */}
-      <text x="0" y="22" textAnchor="middle" className="fill-ink text-[80px] font-bold">
+      {/* 110 units in a 300-unit box, drawn 191px wide — so ~70px on the page, which
+          is the cap height the export measures. It was 80 units when this gauge was
+          drawn at its full 300px; the arc has since been laid out beside the headline
+          at two thirds that size, and a numeral that scaled with it would have come
+          out too small to read as the screen's headline number. */}
+      <text x="0" y="31" textAnchor="middle" className="fill-ink text-[110px] font-bold">
         {value}
       </text>
 
+      {/* 20 units, i.e. ~13px at the drawn width — same reasoning as the numeral. */}
       {TICKS.map((tick) => (
-        <g key={tick.value} textAnchor="middle">
-          <text x={tick.x} y={tick.y} className="fill-ink-muted text-[13px]">
-            {tick.value}
-          </text>
-          {tick.caption ? (
-            <text x={tick.captionX} y={CAPTION_Y} className="fill-ink-soft text-[13px]">
-              {tick.caption}
-            </text>
-          ) : null}
-        </g>
+        <text
+          key={tick.value}
+          x={tick.x}
+          y={tick.y}
+          textAnchor="middle"
+          className="fill-ink-muted text-[20px]"
+        >
+          {tick.value}
+        </text>
       ))}
     </svg>
   );

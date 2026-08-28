@@ -7,6 +7,7 @@ import { ScoreResult } from "@/components/score/ScoreResult";
 import { SessionRefresh } from "@/components/score/SessionRefresh";
 import { STEP_PATHS } from "@/lib/funnel";
 import { QUIZ } from "@/lib/quiz-content";
+import { RECOMMENDATIONS } from "@/lib/recommendations";
 import { loadScore } from "@/lib/score-record";
 
 export const metadata: Metadata = {
@@ -128,6 +129,10 @@ export default async function ScorePage() {
       record={loaded.record}
       handoff={loaded.handoff}
       prompts={prompts}
+      /* Static for now — the API serves no recommendations yet. Passed from here
+         rather than imported by the screen so that when it does, this is the only
+         line that changes. */
+      recommendations={RECOMMENDATIONS}
     />
   );
 }
