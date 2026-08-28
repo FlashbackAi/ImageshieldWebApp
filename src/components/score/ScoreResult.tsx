@@ -151,13 +151,16 @@ export function ScoreResult({
           className="mt-14 gap-y-8 rounded-3xl bg-gradient-to-r from-[#F7F3F0] to-[#EFE8E4] px-6 py-10 sm:gap-10 sm:px-8 lg:mt-[62px] lg:gap-10"
         >
           <p className="max-w-[510px] text-2xl leading-9 font-medium text-ink">
-            Based on your score, we highly recommend signing up for likeness
-            protection by downloading the ImageShield app
+            Download the ImageShield app for our full set of recommendations on how
+            you can improve your score and keep your likeness safe online.
           </p>
         </DownloadPrompt>
 
         <div className="mt-9 flex flex-col gap-10">
-          <InsightCard heading="Your risk factors" rows={factorRows} />
+          <InsightCard
+            heading="The primary risk factors that determined your initial score"
+            rows={factorRows}
+          />
           <InsightCard
             heading="Immediate Recommendations"
             rows={recommendations}
