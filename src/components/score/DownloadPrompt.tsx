@@ -33,7 +33,24 @@ export function DownloadPrompt({
   className?: string;
 }) {
   const qr = compact ? 97 : 120;
-  const badge = compact ? "w-[130px]" : "w-[166px]";
+
+  /**
+   * Badges are matched on HEIGHT, not width, and the two numbers below are not the
+   * same because the two PNGs are not built the same.
+   *
+   * `badge-app-store.png` is full-bleed: its black body fills all 1692×546. The
+   * Google Play badge carries Google's own clear-space inside the file — its body is
+   * 632×182 within a 640×192 canvas — so a box of equal height renders it ~5% smaller
+   * than Apple's. Setting both to one width (which is what the export does, and what
+   * this used to do) is worse still: it left the Play badge visibly 12% shorter.
+   *
+   * So the Play box is scaled by 192/182 to cancel that margin, and the two visible
+   * badges come out the same height. Their widths then differ by ~20px, which is
+   * correct — the two lockups are genuinely different shapes, and matching heights is
+   * what both Apple's and Google's marketing guidelines ask for.
+   */
+  const badgeHeight = compact ? 40 : 53;
+  const playHeight = Math.round((badgeHeight * 192) / 182);
   return (
     <div
       className={`flex flex-col items-start gap-8 sm:flex-row sm:items-center sm:justify-between ${className}`}
@@ -65,7 +82,7 @@ export function DownloadPrompt({
               alt="Get it on Google Play"
               width={640}
               height={192}
-              className={badge}
+              style={{ height: playHeight, width: "auto" }}
             />
           </a>
           <a
@@ -79,7 +96,7 @@ export function DownloadPrompt({
               alt="Download on the App Store"
               width={1692}
               height={546}
-              className={badge}
+              style={{ height: badgeHeight, width: "auto" }}
             />
           </a>
         </div>
