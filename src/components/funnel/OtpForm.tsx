@@ -17,9 +17,9 @@ import { readFunnel, useFunnel } from "@/lib/funnel-state";
  * Two states now, where there were three. This screen used to submit the quiz answers
  * along with the code, which meant it had to handle the case where the code was
  * ACCEPTED and the write after it failed — a dead end with nothing to retype, because
- * the challenge was spent. The questions now come after this step, so the code buys a
- * session and nothing else; a score write that fails later has that session to retry
- * against and never costs anyone their code.
+ * the challenge was spent. The answers are still waiting in the tab at this point, but
+ * they are no longer this screen's business: the code buys a session and nothing else,
+ * and `/calculating` does the write with that session, retrying as often as it likes.
  *
  *   code     typing, resending, verifying — the screen as drawn.
  *   expired  the pending challenge cookie is gone (15 minutes), so neither verifying

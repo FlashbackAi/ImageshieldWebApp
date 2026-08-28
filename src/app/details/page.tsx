@@ -9,12 +9,16 @@ export const metadata: Metadata = {
 };
 
 /**
- * Full name, email and phone. Submitting it sends the verification code.
+ * Full name, date of birth, email and phone. Submitting it sends the verification
+ * code.
  *
- * Now the step before the questions rather than after them, so there is nothing to
- * guard here: a visitor arriving with no answers is exactly what is expected. It used
- * to load the quiz definition purely to check they had finished, which is no longer a
- * thing that can have happened by this point.
+ * The step after the questions rather than before them, which is what the copy is
+ * leaning on: there is a finished quiz behind this form, so it asks for a number in
+ * order to send something the visitor has already earned.
+ *
+ * Whether they really finished it can only be checked in the browser — the answers
+ * live in this tab's sessionStorage and never reach the server until after the code
+ * is verified — so the guard is inside `DetailsForm` rather than a redirect here.
  */
 export default function DetailsPage() {
   return (
@@ -23,8 +27,8 @@ export default function DetailsPage() {
         <>
           Your Likeness Health Score
           {/* Service mark, set so it hangs off the cap line like the design draws it. */}
-          <sup className="align-[6px] text-[0.42em]">SM</sup> is almost ready! How
-          can we send it to you?
+          <sup className="align-[6px] text-[0.42em]">SM</sup> is ready! How can we
+          send it to you?
         </>
       }
       subtitle="We won't share your information with anyone."

@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { QuizFlow } from "@/components/quiz/QuizFlow";
-import { QuizUnavailable } from "@/components/quiz/QuizUnavailable";
-import { STEP_PATHS } from "@/lib/funnel";
-import { loadQuizDefinition } from "@/lib/quiz-definition";
 import { readSession } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -20,31 +16,23 @@ export const metadata: Metadata = {
  * Suspense boundary keeps the header and the canvas in the static HTML so the
  * screen doesn't arrive blank.
  *
- * Behind sign-in, and that is the point of where it sits in the funnel: the questions
- * come from `GET /v1/quiz`, which the API answers only to a session. Reading them here
- * means the funnel renders the definition the server is actually serving, so the
- * answers cannot be rejected at submit for being answers to a quiz nobody is asking.
+ * Open to anyone. Nothing is asked of the visitor before this point and nothing is
+ * sent anywhere from it — the answers go into sessionStorage and are submitted after
+ * the phone number is verified. The questions come from `src/lib/quiz-content.ts`
+ * because `GET /v1/quiz` needs a session that does not exist yet.
+ *
+ * The one thing this page reads a cookie for is `signedIn`, and it is not a gate:
+ * see the note where `QuizFlow` uses it.
  */
 export default async function QuizQuestionsPage() {
-  /* Checked before the definition is fetched rather than inferred from its failure:
-     a lost session and a broken quiz endpoint both stop this screen, and they send the
-     visitor to completely different places. */
-  if ((await readSession()) === null) redirect(STEP_PATHS.details);
-
-  const definition = await loadQuizDefinition();
+  const signedIn = (await readSession()) !== null;
 
   return (
     <main className="relative min-h-[100dvh] bg-canvas-tint pt-[65px]">
       <SiteHeader />
-      {definition === null ? (
-        <div className="flex min-h-[60dvh] items-center justify-center px-5">
-          <QuizUnavailable />
-        </div>
-      ) : (
-        <Suspense>
-          <QuizFlow definition={definition} />
-        </Suspense>
-      )}
+      <Suspense>
+        <QuizFlow signedIn={signedIn} />
+      </Suspense>
     </main>
   );
 }

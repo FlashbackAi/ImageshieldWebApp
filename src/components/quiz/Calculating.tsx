@@ -6,19 +6,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ShieldMark } from "@/components/ShieldMark";
 import { nextPath, STEP_PATHS } from "@/lib/funnel";
 import { readFunnel } from "@/lib/funnel-state";
-import { quizIncomplete, type QuizDefinition } from "@/lib/quiz";
+import { quizIncomplete } from "@/lib/quiz";
+import { QUIZ } from "@/lib/quiz-content";
 import { submitAnswers, type SubmitOutcome } from "@/lib/quiz-submit";
 
 /**
  * Submits the answers, then hands over to the score screen.
  *
- * This used to be a fixed three-second pause with nothing behind it — the quiz came
- * before the phone number, so there was no session to write with and the real submit
- * happened two screens later inside the OTP verify. It is a real wait now.
- *
- * The floor below is what is left of the staged version, and it earns its keep for a
- * different reason: the write usually answers in well under a second, and a loader
- * that appears and vanishes inside 200ms reads as a glitch rather than as progress.
+ * The quiz is answered several screens back, so by the time this runs the answers have
+ * been in sessionStorage for a minute or two and the code entered on the previous
+ * screen has bought the session to write them with. This is a real wait, not a staged
+ * one — but the floor below still earns its keep: the write usually answers in well
+ * under a second, and a loader that appears and vanishes inside 200ms reads as a
+ * glitch rather than as progress.
  */
 const MIN_HOLD_MS = 1200;
 
@@ -29,11 +29,14 @@ const R = 45.69;
 const SWEEP = (228 / 360) * 2 * Math.PI * R;
 const GAP = 2 * Math.PI * R - SWEEP;
 
-export function Calculating({ definition }: { definition: QuizDefinition }) {
+export function Calculating() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   /* React runs effects twice in development, and this one writes. */
   const started = useRef(false);
+  /* The in-flight write, held across those two passes. See the effect below — this
+     ref is what stops the pair of guards from cancelling each other. */
+  const pending = useRef<Promise<SubmitOutcome> | null>(null);
 
   /* Applies an outcome. A `useCallback` rather than inline so the effect below hands
      it to a promise instead of calling setState in its own body — a synchronous
@@ -46,6 +49,9 @@ export function Calculating({ definition }: { definition: QuizDefinition }) {
       if (outcome.reason === "signed-out") {
         return router.replace(STEP_PATHS.details);
       }
+      /* The local questions have drifted from the server's. Back to the quiz — and
+         not back to the details form, which is why `QuizFlow` takes `signedIn`: the
+         session survives this, so re-answering costs no second code. */
       if (outcome.reason === "retake") {
         return router.replace(STEP_PATHS["quiz-questions"]);
       }
@@ -61,32 +67,52 @@ export function Calculating({ definition }: { definition: QuizDefinition }) {
   const run = useCallback(
     () =>
       Promise.all([
-        submitAnswers(definition),
+        submitAnswers(),
         new Promise((done) => setTimeout(done, MIN_HOLD_MS)),
       ]).then(([outcome]) => outcome),
-    [definition],
+    [],
   );
 
+  /**
+   * Fires the write once, and applies its outcome to whichever pass is still mounted.
+   *
+   * The two guards here have to stay separate, and combining them is a deadlock that
+   * only shows up in development. React's StrictMode mounts an effect, tears it down,
+   * and mounts it again; with `started` guarding the whole body, the second pass
+   * returned early — so the request from the first pass resolved into a `live` that
+   * its own cleanup had already set false, `apply` was never called, and the loader
+   * span forever on a score that had in fact been saved.
+   *
+   * So `started` guards only the REQUEST, and the promise lives in a ref. Every pass
+   * attaches its own handler to that same promise: the first pass's handler is
+   * disarmed by its cleanup, the second pass's is live and navigates. One write, one
+   * navigation, in development and production alike.
+   */
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
+    let live = true;
 
-    /* Read the store directly rather than through `useFunnel`: this runs once, and
-       the hook's first value is the empty server snapshot, which would read as an
-       abandoned quiz and bounce someone who answered everything. */
-    if (quizIncomplete(definition, readFunnel())) {
-      router.replace(STEP_PATHS["quiz-questions"]);
-      return;
+    if (!started.current) {
+      started.current = true;
+
+      /* Read the store directly rather than through `useFunnel`: this runs once, and
+         the hook's first value is the empty server snapshot, which would read as an
+         abandoned quiz and bounce someone who answered everything. */
+      if (quizIncomplete(QUIZ, readFunnel())) {
+        router.replace(STEP_PATHS["quiz-questions"]);
+        return;
+      }
+
+      pending.current = run();
     }
 
-    let live = true;
-    run().then((outcome) => {
+    pending.current?.then((outcome) => {
       if (live) apply(outcome);
     });
+
     return () => {
       live = false;
     };
-  }, [apply, definition, router, run]);
+  }, [apply, router, run]);
 
   if (error !== null) {
     return (
@@ -106,7 +132,8 @@ export function Calculating({ definition }: { definition: QuizDefinition }) {
           type="button"
           onClick={() => {
             setError(null);
-            run().then(apply);
+            pending.current = run();
+            pending.current.then(apply);
           }}
           className="mt-8 flex h-14 w-full max-w-[317px] items-center justify-center rounded-full bg-brand text-lg font-semibold text-ink-inverse transition-colors hover:bg-cta"
         >

@@ -19,7 +19,9 @@ npm run dev:offline          # next dev + a stand-in /v1 on :5099
 ```
 
 Runs the app against `tools/dev-api/`, which implements the contract faithfully — the
-quiz definition behind auth included — so the whole funnel walks. The OTP code is
+quiz definition behind auth included — so the whole funnel walks. Editing
+`tools/dev-api/quiz.json` without editing `src/lib/quiz-content.ts` is how to reproduce
+a drifted quiz and watch the retake path. The OTP code is
 `123456`. It is also the only way to reach the states a real backend won't produce to
 order: a score that isn't ready, a write that fails once, an access token about to
 expire. See the knobs at the top of `tools/dev-api/server.mjs`.
@@ -34,7 +36,8 @@ src/
     funnel.ts         step order — the single source of truth for what follows what
     funnel-state.ts   answers + quiz version, persisted to sessionStorage
     session.ts        the /v1 token pair, and the cookies either side of sign-in
-    quiz.ts           the shapes of a server-defined quiz, and answer validation
+    quiz.ts           the shapes of a quiz, and answer validation
+    quiz-content.ts   the questions themselves — this repo's copy, read the note
     score.ts          how a served score is presented — no thresholds of its own
     v1/               server-only client for the /v1 API
     quiz-submit.ts    posting the answers, shared by the two screens that do it
@@ -50,18 +53,28 @@ edits to those values — components shouldn't carry hardcoded hexes or pixel si
 
 **Step order lives in `src/lib/funnel.ts`.** Screens ask `nextPath()` where to go, so
 moving a step is one array edit rather than a hunt through every `router.push`. It has
-already earned that: the questions used to come before the phone number and now come
-after it.
-
-The order is not only a design preference. `GET /v1/quiz` is answered only to a
-session, so the questions have to sit behind sign-in — the funnel renders the
-definition the server is serving rather than a copy of its own, and answers to a
-made-up quiz are rejected at submit. Which is why the shape is:
+earned that twice over — the questions have moved either side of the phone number and
+back again.
 
 ```
-landing → quiz (intro, marketing copy) → details → otp → quiz/questions → calculating → score
-                                          ^ phone verified here    ^ read + answered   ^ written
+landing → quiz (intro, marketing copy) → quiz/questions → details → otp → calculating → score
+                                          ^ answered, kept   ^ phone verified   ^ written
+                                            in this tab                           to /v1
 ```
+
+The questions come first so that the number is asked of someone who has a score
+waiting for them. That costs something specific, and it is the one thing to understand
+before editing the quiz: `GET /v1/quiz` is answered only to a session, so at the moment
+the questions are drawn there is no token to read them with, and they are rendered from
+`src/lib/quiz-content.ts` — this repo's own copy.
+
+The server still has the last word. `POST /v1/quiz/responses` validates the answer keys
+and values against the live definition, so `/api/quiz` re-reads that definition and
+checks the answers against it before writing. A `quiz-content.ts` that has fallen behind
+therefore surfaces as a 409 the funnel words itself — "the quiz has been updated" — and
+the visitor re-answers on the session they already have, without being texted a second
+code. Keep the two in step and that path stays theoretical; see the capture recipe in
+`quiz-content.ts`.
 
 **Answers save on change, not on submit.** Mobile browsers kill background tabs; a user
 who takes a call mid-quiz has to come back to their answers still there. See
@@ -79,10 +92,13 @@ token. So the funnel holds a phone number only until the code is verified, and a
 that reads the person from `GET /v1/me`. Anything that wants to know "whose score is
 this?" is asking the wrong question; there is only ever the caller's.
 
-**The quiz is data.** `POST /v1/quiz/responses` validates both the answer keys and the
-answer values against whatever `GET /v1/quiz` served, so the questions are rendered
-from the definition and the answers carry the `quiz_version` they were given against.
-Nothing in `src/` may hardcode a question — that is what the /v1 migration removed.
+**The quiz is data, and the server owns it.** `POST /v1/quiz/responses` validates both
+the answer keys and the answer values against the active definition. `src/lib/quiz-content.ts`
+is a rendering copy and nothing more: it exists only because the questions are asked
+before there is a session to read `GET /v1/quiz` with, it is captured rather than
+written, and no answer is trusted because it matched it. Everything else in `src/` takes
+a definition as an argument — which is what lets `/api/quiz` run the same validation
+against the live one.
 
 **Errors are a code, not a message.** Every failure is `{ error, message, retry_after? }`.
 Branch on `error`; the message is for people and gets shown to them where its wording
@@ -103,10 +119,11 @@ Two things worth knowing before changing this layer:
 
 ## Still open
 
-- **Conversion cost of asking for the phone number before the questions.** The order is
-  forced by `GET /v1/quiz` needing a session. If the API ever serves the definition
-  anonymously, the questions can move back in front of the form — one array edit in
-  `funnel.ts`, plus moving the submit back off `/calculating`.
+- **`GET /v1/quiz` needs a session, so the questions in front of the form are a local
+  copy.** If the API ever serves the definition anonymously — or issues a service token
+  the server side could read it with — `quiz-content.ts` and the drift path around it
+  delete themselves, and the quiz screens go back to rendering what the server serves.
+  Worth asking the API team for; nothing else about the order would change.
 - Real App Store URL (`.env.example` has a placeholder).
 - Universal link / App Links setup so "Open the app" works on an installed device.
   The QR-code handoff from the old design doesn't apply here: nobody scans a QR with

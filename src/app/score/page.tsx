@@ -2,12 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/landing/SiteHeader";
-import { QuizUnavailable } from "@/components/quiz/QuizUnavailable";
 import { ResumeSave } from "@/components/score/ResumeSave";
 import { ScoreResult } from "@/components/score/ScoreResult";
 import { SessionRefresh } from "@/components/score/SessionRefresh";
 import { STEP_PATHS } from "@/lib/funnel";
-import { loadQuizDefinition } from "@/lib/quiz-definition";
+import { QUIZ } from "@/lib/quiz-content";
 import { loadScore } from "@/lib/score-record";
 
 export const metadata: Metadata = {
@@ -35,11 +34,9 @@ function Centred({ children }: { children: React.ReactNode }) {
 export default async function ScorePage() {
   const loaded = await loadScore();
 
-  /* The definition is fetched inside the branches that need it, NOT alongside the
-     score. Both reads need a session, and running them together meant a signed-out
-     visitor got whichever rejection lost the race: `loadScore` reports a missing
-     session as a value, `loadQuizDefinition` throws it, so `Promise.all` turned this
-     page into a 500 instead of a redirect. Only two branches want the questions. */
+  /* The score is the only thing this page reads over the wire. The questions come
+     from `quiz-content.ts`, so the two branches below that want them — for wording,
+     and for the resume POST — cost nothing and cannot fail. */
   if (!loaded.ok) {
     switch (loaded.reason) {
       /* No session at all — this browser hasn't earned a score yet. */
@@ -60,18 +57,12 @@ export default async function ScorePage() {
          accepted and the write after it wasn't. The answers are still in the tab and
          the session is still good for the write, so `ResumeSave` makes it from here
          instead of marching the visitor back through the quiz and a second code. */
-      case "missing": {
-        const definition = await loadQuizDefinition();
+      case "missing":
         return (
           <Centred>
-            {definition === null ? (
-              <QuizUnavailable />
-            ) : (
-              <ResumeSave definition={definition} />
-            )}
+            <ResumeSave />
           </Centred>
         );
-      }
 
       /* The quiz was retired after these answers were given. There is no write to
          retry — the answers are to questions nobody is asked any more — so the quiz
@@ -127,13 +118,10 @@ export default async function ScorePage() {
   }
 
   /* Breakdown entries are keyed by the quiz's own answer keys, which are the
-     server's to choose. Handing the questions down lets an unrecognised key show the
-     real question instead of a slug — see `topFactors`. Labels only, so a definition
-     that cannot be read costs nothing but nicer wording. */
-  const definition = await loadQuizDefinition();
-  const prompts = new Map(
-    (definition?.questions ?? []).map((q) => [q.key, q.prompt]),
-  );
+     server's to choose. Handing the questions down lets a key show the real question
+     instead of a slug — see `topFactors`. Labels only, so a key this repo's copy has
+     not caught up with costs nothing but nicer wording. */
+  const prompts = new Map(QUIZ.questions.map((q) => [q.key, q.prompt]));
 
   return (
     <ScoreResult

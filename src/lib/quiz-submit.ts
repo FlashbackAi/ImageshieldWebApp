@@ -1,7 +1,7 @@
 "use client";
 
 import { readFunnel } from "./funnel-state";
-import type { QuizDefinition } from "./quiz";
+import { QUIZ } from "./quiz-content";
 
 /**
  * Posting the answers, shared by the two screens that do it.
@@ -25,27 +25,27 @@ export type SubmitOutcome =
       reason:
         /** The session went while the quiz was being answered. */
         | "signed-out"
-        /** The quiz was edited between being read and being answered, and these
-         *  answers no longer fit it. Nothing to retry — the questions changed. */
+        /** This repo's copy of the quiz has drifted from the server's, so these
+         *  answers no longer fit it. Nothing to retry — the questions changed. The
+         *  session is untouched, so the visitor re-answers without a second code. */
         | "retake"
         /** Worth trying again from where the visitor stands. */
         | "failed";
       error: string;
     };
 
-export async function submitAnswers(
-  definition: QuizDefinition,
-): Promise<SubmitOutcome> {
+export async function submitAnswers(): Promise<SubmitOutcome> {
   let response: Response;
   try {
     response = await fetch("/api/quiz", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        /* The version the answers were given against. The server re-reads the live
-           definition and validates against that, so this is what lets it tell a
-           drifted quiz from a malformed body. */
-        quizVersion: definition.quiz_version,
+        /* The version these answers were given against — this repo's, since the
+           questions were rendered from `quiz-content.ts`. The server re-reads the
+           live definition and validates against THAT, so this is only what lets it
+           tell a drifted quiz from a malformed body, and name the drift in a log. */
+        quizVersion: QUIZ.quiz_version,
         answers: readFunnel().answers,
       }),
     });

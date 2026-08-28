@@ -2,14 +2,15 @@
  * The funnel as data.
  *
  * Designers reorder these screens constantly. Keep the order in this one array and
- * derive next/prev from it — never hardcode "after OTP comes the quiz" in a screen.
+ * derive next/prev from it — never hardcode "after the quiz comes the details form"
+ * in a screen.
  */
 const FUNNEL_STEPS = [
   "landing",
   "quiz",
+  "quiz-questions",
   "details",
   "otp",
-  "quiz-questions",
   "calculating",
   "score",
 ] as const;
@@ -19,20 +20,21 @@ export type FunnelStep = (typeof FUNNEL_STEPS)[number];
 export const STEP_PATHS: Record<FunnelStep, string> = {
   landing: "/",
   /* "Take the Quiz" lands on the intro: marketing copy explaining what the quiz is.
-     No API behind it, which is why it stays in front of the form. */
+     No API behind it, which is why it stays in front of everything else. */
   quiz: "/quiz",
-  /* Full name, email, phone. Submitting it sends the code. */
+  /* The questions themselves, asked before anything is asked OF the visitor. They
+     are rendered from `src/lib/quiz-content.ts` rather than from `GET /v1/quiz`,
+     because that endpoint is answered only to a session and there is none yet — see
+     the note in that file for what the local copy costs and how drift is caught. */
+  "quiz-questions": "/quiz/questions",
+  /* Full name, date of birth, email, phone. Submitting it sends the code. Asked
+     once the visitor has answered eight questions and has a score waiting on the
+     other side of it, which is the entire reason the quiz moved in front. */
   details: "/details",
   otp: "/otp",
-  /* The questions themselves, and the reason the order is what it is: they are
-     rendered from `GET /v1/quiz`, which the API answers only to a session. Asking
-     them after sign-in is what lets the funnel read the live definition instead of
-     guessing at one — and answers to a guessed quiz are rejected at submit, which
-     would fail at the END of the funnel rather than the start. */
-  "quiz-questions": "/quiz/questions",
   /* Where the answers are actually submitted and the score computed. It is a real
-     wait now, not a staged one: the phone number is already verified by this point,
-     so there is a session to write with. */
+     wait: the code has just bought a session, so there is finally something to
+     write the answers with. */
   calculating: "/calculating",
   /* Score, QR and the store links: one screen, fed by /api/score. */
   score: "/score",

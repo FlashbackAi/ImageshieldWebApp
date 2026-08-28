@@ -5,24 +5,19 @@ import { ApiFailure } from "./v1/errors";
 import { readQuizDefinitionAsUser } from "./v1/quiz";
 
 /**
- * The active quiz, read with the visitor's own session.
+ * The live quiz, read with the visitor's own session — for the SUBMIT path only.
  *
- * There is one source and no fallback, and that is a consequence of where the quiz
- * sits in the funnel: the questions are asked after the phone number is verified, so
- * every screen that needs them already has a session and can read the live definition.
+ * Nothing renders from this. The questions a visitor answers come from
+ * `quiz-content.ts`, because they are asked before there is any session and
+ * `GET /v1/quiz` answers 401 without one. What this module exists for is the other
+ * end: `POST /v1/quiz/responses` validates the answer keys and values against the
+ * definition the server is serving right now, so `/api/quiz` re-reads that definition
+ * and validates against it before writing.
  *
- * It was not always so. While the quiz came first, this had to serve anonymous
- * visitors from a committed snapshot, because `GET /v1/quiz` answers 401 without a
- * session — the app and the deployed web client both read the quiz from inside an
- * already-authenticated onboarding flow, so nothing had needed it open. Moving the
- * questions behind sign-in removed the need for the snapshot, the capture tool that
- * produced it, and the drift it could develop against the server.
- *
- * What has not changed is the rule the snapshot existed to respect: nothing here
- * invents a question. A hardcoded quiz would render and then be rejected at submit —
- * `POST /v1/quiz/responses` validates both the answer keys and the answer values
- * against the active definition — failing at the end of the funnel instead of the
- * start, after the visitor had given up their number and spent a code.
+ * That ordering is the whole point. Checking here means a drifted local quiz becomes
+ * a 409 this repo words itself — "the quiz has been updated, please answer it again",
+ * with the session left intact — rather than a bare 400 from the API after the write
+ * was attempted.
  */
 
 /** Shape-checked rather than trusted: a malformed response should degrade to the
@@ -59,38 +54,10 @@ function parseDefinition(value: unknown): QuizDefinition | null {
 }
 
 /**
- * For rendering. Null when the definition can't be read, at which point the screen
- * shows `QuizUnavailable` — there is nothing useful to draw without the questions.
- *
- * `SessionUnavailable` is deliberately NOT swallowed: a visitor who has lost their
- * session should be sent back to the start of the funnel by the page, not shown a
- * screen implying the quiz itself is broken.
- */
-export async function loadQuizDefinition(): Promise<QuizDefinition | null> {
-  let body: unknown;
-  try {
-    body = await readQuizDefinitionAsUser();
-  } catch (error) {
-    /* Only the API refusing becomes `null`. Anything else — a lost session, or Next
-       signalling that a route can't be prerendered by throwing from its own request
-       APIs — belongs to the caller. A catch-all here turned that second one into a
-       permanently unavailable quiz screen. */
-    if (!(error instanceof ApiFailure)) throw error;
-    console.error("[quiz] definition unavailable", error.code, error.message);
-    return null;
-  }
-
-  const definition = parseDefinition(body);
-  if (definition === null) {
-    console.error("[quiz] GET /v1/quiz returned a body that is not a definition");
-  }
-  return definition;
-}
-
-/**
- * For writing. Throws rather than returning null: a submit is not allowed to proceed
- * on a definition it could not read, and re-reading it here rather than trusting what
- * a screen rendered is what pins the answers to the version the server is serving now.
+ * Throws rather than returning null: a submit is not allowed to proceed on a
+ * definition it could not read. Re-reading it here rather than trusting the version
+ * the client sent is what pins the answers to what the server is serving now — the
+ * client's copy is this repo's own and is exactly the thing being checked.
  */
 export async function readLiveQuizDefinition(): Promise<QuizDefinition> {
   const definition = parseDefinition(await readQuizDefinitionAsUser());
@@ -109,9 +76,10 @@ export async function readLiveQuizDefinition(): Promise<QuizDefinition> {
 /**
  * Whether what the visitor answered has since drifted from what the server serves.
  *
- * Only for logging. The questions are now read moments before they are answered, so
- * this needs a quiz edited mid-session to fire at all — and whether those particular
- * answers survive is decided by validating them, not by comparing version strings.
+ * Only for logging, but worth watching: this firing means `quiz-content.ts` has fallen
+ * behind the server, and it is the earliest warning of that. Whether those particular
+ * answers survive is still decided by validating them, not by comparing version
+ * strings — a version can move without any question this repo renders having changed.
  */
 export function noteVersionDrift(answeredVersion: unknown, live: QuizDefinition): void {
   if (typeof answeredVersion !== "string") return;

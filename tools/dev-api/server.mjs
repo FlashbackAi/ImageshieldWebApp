@@ -56,7 +56,8 @@ const config = {
 };
 
 /** A real `GET /v1/quiz` response, captured from the live API. Recapture it when the
- *  server edits the quiz — nothing in src/ changes. See the note inside it. */
+ *  server edits the quiz, and paste the same thing into `src/lib/quiz-content.ts` —
+ *  the screens render from that copy, this one is what they are checked against. */
 const quiz = JSON.parse(readFileSync(join(HERE, "quiz.json"), "utf8"));
 
 /** Per phone number, so two browsers are two accounts rather than one shared record. */
@@ -230,11 +231,13 @@ const ROUTES = {
     return send(res, 200, mintTokens(phone));
   },
 
-  // The one anonymous read the funnel needs, and the reason this fixture exists.
   /* Requires a session, like the real API — and like it for the same reason, which is
      that the definition was only ever read from inside an authenticated onboarding
-     flow. It is why the funnel asks the questions after the phone number: an anonymous
-     read is a 401, and the alternative is rendering a quiz nobody is serving.
+     flow. That 401 is why the funnel does NOT render from this endpoint: the questions
+     are asked before the phone number, from `src/lib/quiz-content.ts`. What still
+     calls this is `/api/quiz`, once, at submit — which is the check that catches
+     `quiz-content.ts` having fallen behind. Edit quiz.json without editing that file
+     and the funnel takes the retake path; that is the drift, reproduced locally.
 
      Built field by field rather than by stripping `_readme`, so what the fixture
      serves is exactly the two keys the contract has and nothing that happens to be

@@ -8,18 +8,20 @@ import { presentableFailure } from "@/lib/v1/errors";
 /**
  * POST /api/quiz — { quizVersion, answers }
  *
- * The funnel's score write. Every set of answers goes through here, which is new: the
- * quiz used to be answered before the phone number, so the submit had to ride along
- * with `/api/otp/verify` to avoid a window where a half-authenticated visitor could
- * write. The questions now come after sign-in — the API serves the quiz definition
- * only to a session — so there is always a session by the time answers exist, and
- * this is simply where they go.
+ * The funnel's score write, and the only one. The quiz is answered before the phone
+ * number — the answers sit in the browser through the details form and the code — so
+ * this runs on `/calculating`, the first screen with a session to write them with.
  *
- * That reordering deleted a whole failure mode. A failed score write used to strand
- * someone whose code was already spent, which is why the verify response carried a
- * `verified: true` flag telling the client to retry here instead of re-entering a
- * code that could no longer work. Now a failed write is just a failed write: the
- * session outlives it, and the score screen retries against the same session.
+ * It is deliberately not part of `/api/otp/verify`, which is where this write used to
+ * live. A /v1 challenge is spent the moment it is accepted, so a write bundled into
+ * the verify that then failed stranded someone with a dead code and nothing to retype.
+ * Here, a failed write is just a failed write: the session outlives it, and both
+ * `/calculating` and the score screen retry against that same session.
+ *
+ * This is also where a stale `quiz-content.ts` is caught. The questions the visitor
+ * answered came from this repo, not from the API, so the re-read below is the only
+ * thing standing between a drifted local quiz and a bare 400 — see the 409 it turns
+ * that into.
  *
  * Nothing in the body says whose record this is. It cannot: the API takes the person
  * from the bearer token.
@@ -57,10 +59,11 @@ export async function POST(request: Request) {
   }
 
   /* Re-read rather than trusting the version the client sent. The screen that rendered
-     these questions read the definition a minute or two ago, and this is the one place
-     that can confirm the server still means the same thing by them — the answers are
-     validated against what comes back and pinned to its version, so a quiz edited
-     mid-session is caught here rather than stored wrong. */
+     these questions rendered them from this repo's own copy, so the client's version
+     string is a claim about that copy and nothing more — this is the one place that
+     can ask the server what it is actually serving. The answers are validated against
+     what comes back and pinned to its version, so a local quiz that has fallen behind
+     is caught here rather than stored wrong. */
   let live;
   try {
     live = await readLiveQuizDefinition();
@@ -81,8 +84,10 @@ export async function POST(request: Request) {
 
   const parsed = validateAnswers(live, body?.answers);
   if (!parsed.ok) {
-    /* Answers that fitted what was displayed but not what the server now serves. There
-       is no write to retry — these are answers to different questions. */
+    /* Answers that fitted `quiz-content.ts` but not what the server now serves. There
+       is no write to retry — these are answers to different questions. The session is
+       untouched, so the retake below costs the visitor answers and not a second code;
+       `QuizFlow` routes them straight back to `/calculating` when they are done. */
     console.warn("answers no longer fit the live quiz", parsed.error);
     return Response.json(
       {

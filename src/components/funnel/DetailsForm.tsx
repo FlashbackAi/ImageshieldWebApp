@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { ChevronDown } from "@/components/landing/icons";
 import {
   CALLING_CODES,
@@ -10,7 +10,9 @@ import {
   DEFAULT_COUNTRY,
 } from "@/lib/calling-codes";
 import { backPath, nextPath, STEP_PATHS } from "@/lib/funnel";
-import { writeFunnel } from "@/lib/funnel-state";
+import { readFunnel, writeFunnel } from "@/lib/funnel-state";
+import { quizIncomplete } from "@/lib/quiz";
+import { QUIZ } from "@/lib/quiz-content";
 import { Calendar, ChatBubble, ContactCard, Envelope } from "./icons";
 
 /**
@@ -25,6 +27,12 @@ import { Calendar, ChatBubble, ContactCard, Envelope } from "./icons";
  * reload, and a shared phone would hand the next person a stranger's name and email
  * back on a plate — the server already holds them for the one hop to the OTP screen.
  * Only the phone is stored, and only so the OTP screen can say where it texted.
+ *
+ * The form guards itself against being reached with no quiz behind it, which the page
+ * cannot do: the answers are in this tab's sessionStorage and the server has never
+ * seen them. Without the guard, someone who opened /details directly would hand over
+ * a phone number, spend a code, and land on a loader that immediately bounced them
+ * back to question one — having verified for nothing.
  */
 
 const FIELD =
@@ -75,6 +83,20 @@ export function DetailsForm() {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+
+  /* No quiz behind this form means there is no score to send anywhere, so there is
+     nothing to ask for. Same shape as the guard on the OTP screen, and same reason it
+     is an effect rather than a redirect on the page: the answers are in this tab's
+     sessionStorage and the server has never seen them.
+
+     Read the store directly rather than through `useFunnel`: the hook's first value
+     is the empty server snapshot, which would read as an abandoned quiz and bounce
+     someone who answered everything. */
+  useEffect(() => {
+    if (quizIncomplete(QUIZ, readFunnel())) {
+      router.replace(STEP_PATHS["quiz-questions"]);
+    }
+  }, [router]);
 
   /* One lookup feeds both sides of the picker: the code goes into the composed
      number, the flag onto the display drawn over the <select>. */

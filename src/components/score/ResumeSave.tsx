@@ -6,7 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ShieldMark } from "@/components/ShieldMark";
 import { STEP_PATHS } from "@/lib/funnel";
 import { readFunnel } from "@/lib/funnel-state";
-import { quizIncomplete, type QuizDefinition } from "@/lib/quiz";
+import { quizIncomplete } from "@/lib/quiz";
+import { QUIZ } from "@/lib/quiz-content";
 import { submitAnswers, type SubmitOutcome } from "@/lib/quiz-submit";
 
 /**
@@ -21,18 +22,21 @@ import { submitAnswers, type SubmitOutcome } from "@/lib/quiz-submit";
  * Only if the answers really are gone (a new browser, a cleared tab) is the quiz the
  * honest destination.
  *
- * A rarer screen than it used to be. While the quiz came before the phone number the
- * score write rode along with the OTP verify, so a blip on it stranded someone whose
- * code was already spent and this was the way out. The submit now happens on its own
- * screen, after sign-in, with its own retry — so reaching here means the write failed
- * and the visitor navigated on anyway. Still worth having: the alternative is a score
- * screen with no score and no way forward.
+ * A rarer screen than it used to be. The score write once rode along with the OTP
+ * verify, so a blip on it stranded someone whose code was already spent and this was
+ * the way out. The submit now happens on its own screen, after sign-in, with its own
+ * retry — so reaching here means the write failed and the visitor navigated on anyway.
+ * Still worth having: the alternative is a score screen with no score and no way
+ * forward.
  */
-export function ResumeSave({ definition }: { definition: QuizDefinition }) {
+export function ResumeSave() {
   const router = useRouter();
   const [failed, setFailed] = useState<string | null>(null);
   /* React runs effects twice in development, and this one POSTs. */
   const started = useRef(false);
+  /* The in-flight POST, held across those two passes — same reason as the effect in
+     `Calculating`, which carries the full explanation. */
+  const pending = useRef<Promise<SubmitOutcome> | null>(null);
 
   const apply = useCallback(
     (outcome: SubmitOutcome) => {
@@ -43,8 +47,9 @@ export function ResumeSave({ definition }: { definition: QuizDefinition }) {
       if (outcome.reason === "signed-out") {
         return router.replace(STEP_PATHS.details);
       }
-      /* The quiz was edited under this tab. These answers belong to questions that
-         are no longer asked, so retrying the same POST can only fail again. */
+      /* This repo's questions have drifted from the server's. These answers belong to
+         questions that are no longer asked, so retrying the same POST can only fail
+         again — the quiz is the only way on, and the session makes it free. */
       if (outcome.reason === "retake") {
         return router.replace(STEP_PATHS["quiz-questions"]);
       }
@@ -53,23 +58,33 @@ export function ResumeSave({ definition }: { definition: QuizDefinition }) {
     [router],
   );
 
+  /* `started` guards only the POST, never the whole effect body. Guarding the body
+     deadlocks under StrictMode: the second pass returns early, so the first pass's
+     request resolves into a `live` its own cleanup has already cleared and the screen
+     sits on "Finishing your score" forever. The promise in the ref is what lets each
+     pass attach its own handler to the one request. */
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
+    let live = true;
 
-    if (quizIncomplete(definition, readFunnel())) {
-      router.replace(STEP_PATHS["quiz-questions"]);
-      return;
+    if (!started.current) {
+      started.current = true;
+
+      if (quizIncomplete(QUIZ, readFunnel())) {
+        router.replace(STEP_PATHS["quiz-questions"]);
+        return;
+      }
+
+      pending.current = submitAnswers();
     }
 
-    let live = true;
-    submitAnswers(definition).then((outcome) => {
+    pending.current?.then((outcome) => {
       if (live) apply(outcome);
     });
+
     return () => {
       live = false;
     };
-  }, [apply, definition, router]);
+  }, [apply, router]);
 
   return (
     <div role="status" className="flex flex-col items-center text-center">
@@ -87,7 +102,8 @@ export function ResumeSave({ definition }: { definition: QuizDefinition }) {
             type="button"
             onClick={() => {
               setFailed(null);
-              submitAnswers(definition).then(apply);
+              pending.current = submitAnswers();
+              pending.current.then(apply);
             }}
             className="mt-8 flex h-14 w-full max-w-[317px] items-center justify-center rounded-full bg-brand text-lg font-semibold text-ink-inverse transition-colors hover:bg-cta"
           >

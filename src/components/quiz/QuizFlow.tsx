@@ -10,19 +10,19 @@ import {
   toggleAnswer,
   useFunnel,
 } from "@/lib/funnel-state";
-import { askedQuestions, type QuizDefinition } from "@/lib/quiz";
+import { askedQuestions } from "@/lib/quiz";
+import { QUIZ } from "@/lib/quiz-content";
 import { QuizProgress } from "./QuizProgress";
 
 /**
- * The questions come from `GET /v1/quiz` and are handed down by the page.
+ * The questions come from `src/lib/quiz-content.ts`, this repo's own copy.
  *
- * They used to be a constant in this repo, kept in step with the app's copy by hand.
- * The API validates both the answer keys and the answer values against its own active
- * definition, so a local copy is a 400 waiting to happen the day someone edits a
- * question on the server — and the funnel would only find out at submit, after the
- * visitor had given up their phone number.
+ * They are asked before the visitor has verified anything, so there is no session to
+ * read `GET /v1/quiz` with — that endpoint 401s without one. The API still has the
+ * final say: it validates the keys and values at submit, and a mismatch comes back as
+ * a retake rather than a dead end. See the note in `quiz-content.ts`.
  */
-export function QuizFlow({ definition }: { definition: QuizDefinition }) {
+export function QuizFlow({ signedIn }: { signedIn: boolean }) {
   const router = useRouter();
   const stored = useFunnel();
   const params = useSearchParams();
@@ -36,13 +36,13 @@ export function QuizFlow({ definition }: { definition: QuizDefinition }) {
      answers whose version doesn't match, so the first paint is correct and the
      effect only makes the storage agree with it. */
   useEffect(() => {
-    syncQuizVersion(definition.quiz_version);
-  }, [definition.quiz_version]);
+    syncQuizVersion(QUIZ.quiz_version);
+  }, []);
 
   const answers =
-    stored.quizVersion === definition.quiz_version ? stored.answers : {};
+    stored.quizVersion === QUIZ.quiz_version ? stored.answers : {};
 
-  const asked = askedQuestions(definition, answers);
+  const asked = askedQuestions(QUIZ, answers);
 
   /* A definition with nothing to ask is not a state this screen can render its way
      out of, and it should be impossible — but `asked[step - 1]` would be undefined
@@ -73,6 +73,26 @@ export function QuizFlow({ definition }: { definition: QuizDefinition }) {
     else router.push(STEP_PATHS.quiz);
   }
 
+  /**
+   * Where the last answer leads.
+   *
+   * Normally the details form — the questions are asked first precisely so the phone
+   * number is asked of someone who has a score waiting for them.
+   *
+   * `signedIn` is not a shortcut for returning visitors; it exists for one path that
+   * would otherwise cost a second code. When the local questions have drifted from
+   * the server's, `/api/quiz` answers 409 and the screens send the visitor back HERE
+   * to answer again — and by then the code has already been spent and a session
+   * already exists. Routing that visitor to `/details` would text them a fresh code
+   * to prove a number they proved a minute ago. They go straight to the write.
+   */
+  function finish() {
+    const onwards = signedIn
+      ? STEP_PATHS.calculating
+      : (nextPath("quiz-questions") ?? STEP_PATHS.landing);
+    router.push(onwards);
+  }
+
   function pick(option: string) {
     if (question.multi) {
       toggleAnswer(question.key, option, question.options);
@@ -81,11 +101,11 @@ export function QuizFlow({ definition }: { definition: QuizDefinition }) {
     /* Recount off the answer we just wrote, not the render's stale copy: an answer
        can unlock a question that comes after this one. */
     const total = askedQuestions(
-      definition,
+      QUIZ,
       saveAnswer(question.key, option).answers,
     ).length;
     if (step < total) go(step + 1);
-    else router.push(nextPath("quiz-questions") ?? STEP_PATHS.landing);
+    else finish();
   }
 
   const given = answers[question.key];
@@ -182,9 +202,7 @@ export function QuizFlow({ definition }: { definition: QuizDefinition }) {
             type="button"
             disabled={!chosen.size}
             onClick={() =>
-              step < asked.length
-                ? go(step + 1)
-                : router.push(nextPath("quiz-questions") ?? STEP_PATHS.landing)
+              step < asked.length ? go(step + 1) : finish()
             }
             className="mt-8 mx-auto flex h-14 w-full max-w-[512px] items-center justify-center rounded-full bg-brand text-base font-semibold text-ink-inverse transition-colors hover:bg-cta disabled:opacity-40"
           >

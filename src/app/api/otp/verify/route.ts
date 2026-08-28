@@ -19,14 +19,14 @@ import { fetchMe, type Me } from "@/lib/v1/me";
  *   /v1/me/profile       the lead's name.
  *   /v1/me/email         the lead's email — and a verification mail with it.
  *
- * The quiz is deliberately NOT here. It used to be: while the questions came before
- * the phone number, this route both verified and scored, so that there was no window
- * in which a half-authenticated visitor could write. The questions now come after
- * sign-in, because the API serves the quiz definition only to a session — so by the
- * time there are answers to save there is a session to save them with, and the score
- * write belongs to `/api/quiz`. That also means a failed score write no longer costs
- * anyone their code, which is what the old `verified: true` response existed to
- * rescue.
+ * The quiz is deliberately NOT here, though the answers do exist by this point — the
+ * questions are asked two screens back and are sitting in the visitor's tab. This
+ * route once scored them as part of verifying, so that there was no window in which a
+ * half-authenticated visitor could write. The cost was worse than the window: a /v1
+ * challenge is spent the moment it is accepted, so a score write that failed here left
+ * someone holding a dead code with nothing to retype. Splitting them means the session
+ * this route mints is what the write runs on, and `/api/quiz` can be retried all day.
+ * That is what the old `verified: true` response existed to rescue.
  *
  * On statuses, because one of them changed with the API: a wrong code is a 401 from
  * /v1 and is answered here as a **400**, because this route reserves 401 for "there
@@ -125,7 +125,7 @@ export async function POST(request: Request) {
     console.error("me read failed", (error as Error).message);
   }
 
-  /* Never fatal either. The visitor is on their way to the quiz; a name that didn't
+  /* Never fatal either. The visitor is on their way to the score; a name that didn't
      save is worth a log, not a dead end — and `/api/quiz` will not care. */
   const leadSaved = await saveLead(contact, me);
 

@@ -1,16 +1,16 @@
 /**
- * The quiz, as the server defines it.
+ * The shape of a quiz, and the rules for handling answers to one.
  *
- * This file used to BE the quiz: eight questions and their option strings, mirrored
- * by hand from the app's `LikenessHealthQuizScreen`, with a comment warning that
- * renaming an option would silently stop the score meaning anything. On /v1 that
- * warning became an error message — `POST /v1/quiz/responses` validates both the
- * answer KEYS and the VALUES against the active definition and rejects anything it
- * doesn't recognise with a 400. So the questions are read from `GET /v1/quiz` and
- * this file is only the shapes and the rules for handling them.
+ * Not the questions themselves — those are in `quiz-content.ts` for the screens, and
+ * come from `GET /v1/quiz` for the submit. This file is what both ends agree on.
  *
- * Client-safe on purpose: the screens render from these types and the route handlers
- * validate against them, so there is exactly one definition of what a valid answer is.
+ * Everything here takes the definition as an argument rather than reaching for one,
+ * and that is deliberate: `/api/quiz` runs these same functions against the LIVE
+ * definition while the screens run them against this repo's copy, which is exactly how
+ * a stale copy gets caught. One definition of what a valid answer is, two definitions
+ * of what the questions are, and only the server's decides.
+ *
+ * Client-safe on purpose — the screens import it directly.
  */
 
 export type QuizQuestion = {
@@ -88,10 +88,10 @@ export function missingAnswers(
  * Sanitise answers before they reach the API.
  *
  * The API validates them too, and would be within its rights to be the only thing
- * that does. This runs anyway for one reason: it turns "400 VALIDATION_FAILED" into
- * a sentence naming the question, and it catches a stale tab — answers left in
- * sessionStorage against a definition the server has since edited — before it costs
- * the visitor a round trip and a failed-looking screen.
+ * that does. This runs anyway because of where `/api/quiz` runs it — against the live
+ * definition, before the write — which is what turns a drifted local quiz from a bare
+ * "400 VALIDATION_FAILED" into a sentence naming the question and a screen that sends
+ * the visitor back to answer it.
  *
  * Unknown keys are dropped rather than forwarded, off-menu values are refused.
  */
@@ -147,13 +147,13 @@ export function validateAnswers(
 
 /**
  * Whether a visitor still has quiz left to do — the guard every screen after the
- * quiz runs before it lets someone stand on it.
+ * quiz runs before it lets someone stand on it. The details form is the first of
+ * them, which is what stops anyone spending a code on a score they never earned.
  *
  * A version mismatch counts as incomplete, and that is the part worth spelling out:
- * answers stored against a retired definition are complete answers to questions that
- * are no longer being asked. Treating them as done would carry them all the way to
- * `POST /v1/quiz/responses`, which rejects them — after the visitor has entered their
- * phone number and spent a code.
+ * answers stored against a version this tab no longer renders are complete answers to
+ * questions that are no longer being asked. Treating them as done would carry them all
+ * the way to `POST /v1/quiz/responses`, which rejects them.
  */
 export function quizIncomplete(
   definition: QuizDefinition,
