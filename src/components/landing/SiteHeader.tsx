@@ -23,8 +23,8 @@ function NavLabel({ item }: { item: (typeof SITE_NAV)[number] }) {
   return (
     <>
       {item.label}
-      {item.serviceMark ? (
-        <sup className="align-[4.6px] text-[0.35em]">SM</sup>
+      {item.mark ? (
+        <sup className="align-[4.6px] text-[0.35em]">{item.mark}</sup>
       ) : null}
     </>
   );

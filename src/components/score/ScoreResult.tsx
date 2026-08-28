@@ -4,10 +4,10 @@ import type { Recommendation } from "@/lib/recommendations";
 import {
   bandLabel,
   type FactorIcon,
-  riskLevelOf,
+  reportFactors,
   type RiskLevel,
+  riskLevelOf,
   type ScoreRecord,
-  topFactors,
 } from "@/lib/score";
 import { Calendar, Eye, Globe, Report, ShieldCheck, Venus, Wand } from "../funnel/icons";
 import { AppHandoffSection } from "./AppHandoffSection";
@@ -72,7 +72,7 @@ export function ScoreResult({
      doesn't match them (see ../../lib/score.ts). */
   const label = bandLabel(score);
 
-  const factorRows: InsightRow[] = topFactors(score.breakdown.quiz, prompts).map(
+  const factorRows: InsightRow[] = reportFactors(score.breakdown.quiz, prompts).map(
     (factor) => ({
       id: factor.key,
       icon: FACTOR_ICONS[factor.icon],

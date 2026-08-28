@@ -104,10 +104,18 @@ const scoreFor = () => ({
   quiz_version: quiz.quiz_version,
   computed_at: new Date().toISOString(),
   breakdown: {
+    /* One entry per SCORED question, which is what the real API returns — it had
+       four, and a breakdown missing half the quiz is not the contract. The result
+       screen pins its three cards to `age`, `gender` and `posting_volume`, so a stub
+       without those silently exercised the backfill path instead of the real one. */
     quiz: [
       { key: "privacy", value: "Public", deduction: 12, type: "exposure" },
       { key: "platforms", value: "Instagram, TikTok", deduction: 8, type: "exposure" },
+      { key: "posting_volume", value: "High", deduction: 7, type: "exposure" },
+      { key: "gender", value: "Female", deduction: 6, type: "demographic" },
       { key: "age", value: "25-34", deduction: 5, type: "demographic" },
+      { key: "content_type", value: "Regular content", deduction: 4, type: "exposure" },
+      { key: "monitoring", value: "I don't monitor", deduction: 3, type: "history" },
       { key: "prior_misuse", value: "No", deduction: 0, type: "history" },
     ],
     dynamic: [],

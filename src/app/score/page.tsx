@@ -120,7 +120,7 @@ export default async function ScorePage() {
 
   /* Breakdown entries are keyed by the quiz's own answer keys, which are the
      server's to choose. Handing the questions down lets a key show the real question
-     instead of a slug — see `topFactors`. Labels only, so a key this repo's copy has
+     instead of a slug — see `reportFactors`. Labels only, so a key this repo's copy has
      not caught up with costs nothing but nicer wording. */
   const prompts = new Map(QUIZ.questions.map((q) => [q.key, q.prompt]));
 

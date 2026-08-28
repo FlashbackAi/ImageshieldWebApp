@@ -448,43 +448,86 @@ export type PresentedFactor = {
 };
 
 /**
- * The three cards the design has room for: whatever cost the most points.
+ * The three the export names, in its order: Age, Gender, Social activity.
+ *
+ * Pinned rather than picked by deduction, and that is a change worth being explicit
+ * about. Sorting by what cost the most points is the more informative rule, but it
+ * surfaces whichever questions happen to score worst for this person — which meant
+ * the card could show "Privacy Settings" and "Platforms", two entries whose copy
+ * predates this design and reads nothing like the three the export writes.
+ *
+ * These three are safe to pin because the live quiz asks all of them of everyone:
+ * none is conditional and none is optional, so there is always an answer behind each
+ * card. What is NOT guaranteed is that each cost points — a card can therefore name
+ * something that did not push this particular score down, which is why the card is
+ * headed "Your risk factors" rather than "What lowered your score".
+ */
+const REPORT_FACTORS = ["age", "gender", "posting_volume"] as const;
+
+/** One breakdown entry, dressed for a card. */
+function present(
+  factor: QuizFactor,
+  prompts: ReadonlyMap<string, string>,
+): PresentedFactor {
+  const preset = BY_ALIAS.get(normalizeKey(factor.key));
+  if (preset) {
+    return {
+      key: factor.key,
+      title: preset.title,
+      icon: preset.icon,
+      description: preset.description,
+    };
+  }
+  /* No presentation entry: show the real question and the real answer rather than a
+     generic line or a raw slug. */
+  const prompt = prompts.get(factor.key);
+  return {
+    key: factor.key,
+    title: humanizeKey(factor.key),
+    icon: "shield" as FactorIcon,
+    description: prompt
+      ? `${prompt} You answered “${factor.value}”.`
+      : `You answered “${factor.value}”.`,
+  };
+}
+
+/**
+ * The cards under "Your risk factors".
  *
  * `prompts` maps an answer key to the question it was asked as, read from the same
- * quiz definition the visitor answered. It is what a factor with no presentation
- * entry falls back to, so an unrecognised key shows the real question and the real
- * answer rather than a generic line or a raw slug.
+ * quiz definition the visitor answered — the fallback for a key no alias claims.
  *
- * Sorted descending because /v1 sends `deduction` as a positive number of points
- * subtracted; the legacy backend sent it negative and this sorted ascending.
+ * Backfilled by deduction when the pinned set can't be filled, so a server that
+ * renames or drops one of those questions costs the card one entry rather than
+ * leaving a hole in the design.
  */
-export function topFactors(
+export function reportFactors(
   breakdown: QuizFactor[],
   prompts: ReadonlyMap<string, string> = new Map(),
   count = 3,
 ): PresentedFactor[] {
-  return [...breakdown]
-    .filter((factor) => factor.deduction > 0)
-    .sort((a, b) => b.deduction - a.deduction)
-    .slice(0, count)
-    .map((factor) => {
-      const preset = BY_ALIAS.get(normalizeKey(factor.key));
-      if (preset) {
-        return {
-          key: factor.key,
-          title: preset.title,
-          icon: preset.icon,
-          description: preset.description,
-        };
-      }
-      const prompt = prompts.get(factor.key);
-      return {
-        key: factor.key,
-        title: humanizeKey(factor.key),
-        icon: "shield" as FactorIcon,
-        description: prompt
-          ? `${prompt} You answered “${factor.value}”.`
-          : `You answered “${factor.value}”.`,
-      };
-    });
+  const byKey = new Map(
+    breakdown.map((factor) => [normalizeKey(factor.key), factor] as const),
+  );
+
+  const chosen: QuizFactor[] = [];
+  for (const key of REPORT_FACTORS) {
+    const factor = byKey.get(normalizeKey(key));
+    if (factor) chosen.push(factor);
+  }
+
+  if (chosen.length < count) {
+    const taken = new Set(chosen.map((factor) => factor.key));
+    const rest = breakdown
+      .filter((factor) => !taken.has(factor.key) && factor.deduction > 0)
+      /* /v1 sends `deduction` as a positive number of points subtracted; the legacy
+         backend sent it negative and this sorted the other way round. */
+      .sort((a, b) => b.deduction - a.deduction);
+    for (const factor of rest) {
+      chosen.push(factor);
+      if (chosen.length === count) break;
+    }
+  }
+
+  return chosen.slice(0, count).map((factor) => present(factor, prompts));
 }

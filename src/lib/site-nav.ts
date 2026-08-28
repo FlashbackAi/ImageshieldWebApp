@@ -10,15 +10,24 @@ export const SITE_NAV: ReadonlyArray<{
   href: string;
   /** The first two links are set in plain white; the rest in the dimmer nav ink. */
   bright?: boolean;
-  /** Renders a raised ℠ after the label. */
-  serviceMark?: boolean;
+  /**
+   * Raised after the label.
+   *
+   * The LHS Results V1 export draws this link as "Likeness Health Score™", and only
+   * the label is taken from it: the mark stays ℠ across the site, because what is
+   * being marked is a service ImageShield performs rather than a product it sells.
+   * The type keeps both so a genuine ™ elsewhere doesn't need a second flag.
+   */
+  mark?: "SM" | "TM";
 }> = [
   { label: "Download", href: "#download", bright: true },
   {
-    label: "Likeness Health Quiz",
+    /* Still points at the quiz intro, which is the only route to a score — the
+       label names the destination's payoff rather than its first screen. */
+    label: "Likeness Health Score",
     href: "/quiz",
     bright: true,
-    serviceMark: true,
+    mark: "SM",
   },
   { label: "FAQ", href: "/faq" },
   { label: "How It Works", href: "#how-it-works" },
