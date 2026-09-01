@@ -19,6 +19,7 @@ import "server-only";
 import type { QuizAnswers, QuizDefinition } from "../quiz";
 import type { ScoreEnvelope } from "../score";
 import { callAsUser, readAsUser } from "../session";
+import { call } from "./client";
 
 /**
  * The active quiz, read with the visitor's session and NOT cached.
@@ -36,6 +37,32 @@ import { callAsUser, readAsUser } from "../session";
  */
 export const readQuizDefinitionAsUser = () =>
   callAsUser<QuizDefinition>("GET", "/v1/quiz");
+
+/**
+ * How long a cached definition may be served before it is re-read.
+ *
+ * The quiz changes when someone edits it, which is rarely and never urgently, so this
+ * trades a few minutes of staleness for one API call per window instead of one per
+ * screen per visitor. Staleness is survivable by design: the answers are validated
+ * against a fresh read at submit, and a mismatch becomes the 409 retake.
+ */
+const DEFINITION_TTL_S = 300;
+
+/**
+ * The active quiz, read WITHOUT a session — the funnel's only source of questions.
+ *
+ * The funnel asks the quiz before the phone number, so at the moment the questions
+ * render there is no token to read them with. That used to make this read impossible
+ * and is why this repo carried a hand-copied `quiz-content.ts`; the endpoint is now
+ * answered unauthenticated, so the copy is gone and the questions are the server's.
+ *
+ * Cached, unlike `readQuizDefinitionAsUser` above, and the difference is entirely the
+ * token: with no Authorization header there is no visitor in the request, so there is
+ * nothing visitor-specific in the response to leak between them. `call` refuses to
+ * combine `revalidate` with an access token, so this stays true.
+ */
+export const readPublicQuizDefinition = () =>
+  call<QuizDefinition>("GET", "/v1/quiz", { revalidate: DEFINITION_TTL_S });
 
 /**
  * 201 Created, with the freshly computed score.

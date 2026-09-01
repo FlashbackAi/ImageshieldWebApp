@@ -2,22 +2,22 @@ import "server-only";
 
 import type { QuizDefinition, QuizQuestion } from "./quiz";
 import { ApiFailure } from "./v1/errors";
-import { readQuizDefinitionAsUser } from "./v1/quiz";
+import { readPublicQuizDefinition, readQuizDefinitionAsUser } from "./v1/quiz";
 
 /**
- * The live quiz, read with the visitor's own session — for the SUBMIT path only.
+ * The quiz definition, read two ways for two different jobs.
  *
- * Nothing renders from this. The questions a visitor answers come from
- * `quiz-content.ts`, because they are asked before there is any session and
- * `GET /v1/quiz` answers 401 without one. What this module exists for is the other
- * end: `POST /v1/quiz/responses` validates the answer keys and values against the
- * definition the server is serving right now, so `/api/quiz` re-reads that definition
- * and validates against it before writing.
+ * `readVisitorQuizDefinition` is what the SCREENS render from, read without a session
+ * because the funnel asks the quiz before the phone number. `readLiveQuizDefinition`
+ * is what the SUBMIT validates against, read with the visitor's own session.
  *
- * That ordering is the whole point. Checking here means a drifted local quiz becomes
- * a 409 this repo words itself — "the quiz has been updated, please answer it again",
- * with the session left intact — rather than a bare 400 from the API after the write
- * was attempted.
+ * Both hit `GET /v1/quiz`, so they normally return the same bytes and the second read
+ * looks redundant. It is not, and the case it exists for is a deploy that lands while
+ * someone is mid-quiz: `POST /v1/quiz/responses` validates keys and values against
+ * whatever is active at that instant, so `/api/quiz` re-reads it and compares. That
+ * turns a mismatch into a 409 this repo words itself — "the quiz has been updated,
+ * please answer it again", with the session left intact — rather than a bare 400 from
+ * the API after the write was attempted.
  */
 
 /** Shape-checked rather than trusted: a malformed response should degrade to the
@@ -76,10 +76,11 @@ export async function readLiveQuizDefinition(): Promise<QuizDefinition> {
 /**
  * Whether what the visitor answered has since drifted from what the server serves.
  *
- * Only for logging, but worth watching: this firing means `quiz-content.ts` has fallen
- * behind the server, and it is the earliest warning of that. Whether those particular
- * answers survive is still decided by validating them, not by comparing version
- * strings — a version can move without any question this repo renders having changed.
+ * Only for logging, but worth watching. Both reads hit the same endpoint, so this
+ * firing means the definition CHANGED between the questions being fetched and the
+ * answers being sent — a deploy mid-funnel, or a tab left open past one. Whether those
+ * particular answers survive is still decided by validating them, not by comparing
+ * version strings: a version can move without any question having changed.
  */
 export function noteVersionDrift(answeredVersion: unknown, live: QuizDefinition): void {
   if (typeof answeredVersion !== "string") return;
@@ -87,4 +88,27 @@ export function noteVersionDrift(answeredVersion: unknown, live: QuizDefinition)
   console.warn(
     `[quiz] answers were given against ${answeredVersion} but the live definition is ${live.quiz_version}`,
   );
+}
+
+/**
+ * The quiz for a visitor who has not verified anything yet.
+ *
+ * Returns null rather than throwing, because the caller is a screen: an unreadable
+ * definition is a "try again" on the first question, which is the cheapest place in
+ * the funnel to fail. Throwing would be a 500 on a route that has nothing private on
+ * it, and — as the outage that preceded this work showed — a 500 here reads to a
+ * visitor as the whole site being broken.
+ *
+ * There is deliberately NO bundled fallback. Rendering questions the server does not
+ * have produces answers it refuses at the very END of the quiz, after all the
+ * visitor's work; failing on the first screen with a retry is the kinder failure. The
+ * app's `useQuizDefinition` makes the same call for the same reason.
+ */
+export async function readVisitorQuizDefinition(): Promise<QuizDefinition | null> {
+  try {
+    return parseDefinition(await readPublicQuizDefinition());
+  } catch (error) {
+    console.error("public quiz definition unavailable", (error as Error).message);
+    return null;
+  }
 }

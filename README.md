@@ -19,12 +19,12 @@ npm run dev:offline          # next dev + a stand-in /v1 on :5099
 ```
 
 Runs the app against `tools/dev-api/`, which implements the contract faithfully — the
-quiz definition behind auth included — so the whole funnel walks. Editing
-`tools/dev-api/quiz.json` without editing `src/lib/quiz-content.ts` is how to reproduce
-a drifted quiz and watch the retake path. The OTP code is
-`123456`. It is also the only way to reach the states a real backend won't produce to
-order: a score that isn't ready, a write that fails once, an access token about to
-expire. See the knobs at the top of `tools/dev-api/server.mjs`.
+quiz definition, answered without a session, included — so the whole funnel walks. The
+OTP code is `123456`. Editing `tools/dev-api/quiz.json` WHILE a tab sits mid-quiz is how
+to reproduce a definition that moved under a visitor and watch the retake path, which is
+what a deploy mid-funnel looks like. It is also the only way to reach the states a real
+backend won't produce to order: a score that isn't ready, a write that fails once, an
+access token about to expire. See the knobs at the top of `tools/dev-api/server.mjs`.
 
 ## How it's put together
 
@@ -37,7 +37,8 @@ src/
     funnel-state.ts   answers + quiz version, persisted to sessionStorage
     session.ts        the /v1 token pair, and the cookies either side of sign-in
     quiz.ts           the shapes of a quiz, and answer validation
-    quiz-content.ts   the questions themselves — this repo's copy, read the note
+    quiz-definition.ts  reads GET /v1/quiz — once without a session, once with
+    use-quiz-definition.ts  that definition, fetched once per tab, shared by 5 screens
     score.ts          how a served score is presented — no thresholds of its own
     v1/               server-only client for the /v1 API
     quiz-submit.ts    posting the answers, shared by the two screens that do it
@@ -63,18 +64,24 @@ landing → quiz (intro, marketing copy) → quiz/questions → details → otp 
 ```
 
 The questions come first so that the number is asked of someone who has a score
-waiting for them. That costs something specific, and it is the one thing to understand
-before editing the quiz: `GET /v1/quiz` is answered only to a session, so at the moment
-the questions are drawn there is no token to read them with, and they are rendered from
-`src/lib/quiz-content.ts` — this repo's own copy.
+waiting for them, and `GET /v1/quiz` is answered without a session, so that ordering
+costs nothing: the questions in front of the form are the server's own. This repo used
+to carry a hand-copied `quiz-content.ts` because that read needed a token; it does not,
+and the copy is gone.
+
+The browser does not call the API directly. `GET /api/quiz-definition` is the read, and
+it exists because the API host is server-only config — no `NEXT_PUBLIC_` prefix, so it
+never ships in a bundle — and because a browser-side call would need CORS from a service
+with no reason to grant it. Five screens want the definition, so the upstream read is
+cached for five minutes and `useQuizDefinition` fetches it once per tab.
 
 The server still has the last word. `POST /v1/quiz/responses` validates the answer keys
 and values against the live definition, so `/api/quiz` re-reads that definition and
-checks the answers against it before writing. A `quiz-content.ts` that has fallen behind
-therefore surfaces as a 409 the funnel words itself — "the quiz has been updated" — and
-the visitor re-answers on the session they already have, without being texted a second
-code. Keep the two in step and that path stays theoretical; see the capture recipe in
-`quiz-content.ts`.
+checks the answers against it before writing. Both reads hit the same endpoint, so they
+normally agree — the case the re-read exists for is a deploy that lands while someone is
+mid-quiz. That surfaces as a 409 the funnel words itself, "the quiz has been updated",
+and the visitor re-answers on the session they already have, without being texted a
+second code.
 
 **Answers save on change, not on submit.** Mobile browsers kill background tabs; a user
 who takes a call mid-quiz has to come back to their answers still there. See
@@ -93,11 +100,9 @@ that reads the person from `GET /v1/me`. Anything that wants to know "whose scor
 this?" is asking the wrong question; there is only ever the caller's.
 
 **The quiz is data, and the server owns it.** `POST /v1/quiz/responses` validates both
-the answer keys and the answer values against the active definition. `src/lib/quiz-content.ts`
-is a rendering copy and nothing more: it exists only because the questions are asked
-before there is a session to read `GET /v1/quiz` with, it is captured rather than
-written, and no answer is trusted because it matched it. Everything else in `src/` takes
-a definition as an argument — which is what lets `/api/quiz` run the same validation
+the answer keys and the answer values against the active definition, and nothing under
+`src/` holds a copy of the questions to disagree with it. Everything here takes a
+definition as an argument — which is what lets `/api/quiz` run the same validation
 against the live one.
 
 **Errors are a code, not a message.** Every failure is `{ error, message, retry_after? }`.
@@ -119,11 +124,6 @@ Two things worth knowing before changing this layer:
 
 ## Still open
 
-- **`GET /v1/quiz` needs a session, so the questions in front of the form are a local
-  copy.** If the API ever serves the definition anonymously — or issues a service token
-  the server side could read it with — `quiz-content.ts` and the drift path around it
-  delete themselves, and the quiz screens go back to rendering what the server serves.
-  Worth asking the API team for; nothing else about the order would change.
 - Real App Store URL (`.env.example` has a placeholder).
 - Universal link / App Links setup so "Open the app" works on an installed device.
   The QR-code handoff from the old design doesn't apply here: nobody scans a QR with

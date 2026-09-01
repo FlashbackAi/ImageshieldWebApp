@@ -6,7 +6,7 @@ import { ResumeSave } from "@/components/score/ResumeSave";
 import { ScoreResult } from "@/components/score/ScoreResult";
 import { SessionRefresh } from "@/components/score/SessionRefresh";
 import { STEP_PATHS } from "@/lib/funnel";
-import { QUIZ } from "@/lib/quiz-content";
+import { readVisitorQuizDefinition } from "@/lib/quiz-definition";
 import { RECOMMENDATIONS } from "@/lib/recommendations";
 import { loadScore } from "@/lib/score-record";
 
@@ -35,9 +35,11 @@ function Centred({ children }: { children: React.ReactNode }) {
 export default async function ScorePage() {
   const loaded = await loadScore();
 
-  /* The score is the only thing this page reads over the wire. The questions come
-     from `quiz-content.ts`, so the two branches below that want them — for wording,
-     and for the resume POST — cost nothing and cannot fail. */
+  /* The score is what this page is for; the questions are read alongside it purely
+     for wording. Deliberately NOT awaited together with it — the definition read is
+     cached and shared, and the score read is the one that decides whether there is a
+     page at all, so it runs first and the redirects below happen without waiting on
+     labels nobody will see. */
   if (!loaded.ok) {
     switch (loaded.reason) {
       /* No session at all — this browser hasn't earned a score yet. */
@@ -118,11 +120,16 @@ export default async function ScorePage() {
     }
   }
 
-  /* Breakdown entries are keyed by the quiz's own answer keys, which are the
-     server's to choose. Handing the questions down lets a key show the real question
-     instead of a slug — see `reportFactors`. Labels only, so a key this repo's copy has
-     not caught up with costs nothing but nicer wording. */
-  const prompts = new Map(QUIZ.questions.map((q) => [q.key, q.prompt]));
+  /* Breakdown entries are keyed by the quiz's own answer keys, which are the server's
+     to choose. Handing the questions down lets a key show the real question instead of
+     a slug — see `reportFactors`. Labels only, so a definition that fails to read here
+     costs nothing but nicer wording, and an empty map is a fine answer: `reportFactors`
+     falls back to the key. That is why this is the one read on the page allowed to
+     come back null without a redirect. */
+  const definition = await readVisitorQuizDefinition();
+  const prompts = new Map(
+    (definition?.questions ?? []).map((q) => [q.key, q.prompt]),
+  );
 
   return (
     <ScoreResult

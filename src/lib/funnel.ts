@@ -23,7 +23,7 @@ export const STEP_PATHS: Record<FunnelStep, string> = {
      No API behind it, which is why it stays in front of everything else. */
   quiz: "/quiz",
   /* The questions themselves, asked before anything is asked OF the visitor. They
-     are rendered from `src/lib/quiz-content.ts` rather than from `GET /v1/quiz`,
+     are read from `GET /v1/quiz` without a session, which that endpoint now allows,
      because that endpoint is answered only to a session and there is none yet — see
      the note in that file for what the local copy costs and how drift is caught. */
   "quiz-questions": "/quiz/questions",

@@ -1,14 +1,14 @@
 /**
  * The shape of a quiz, and the rules for handling answers to one.
  *
- * Not the questions themselves — those are in `quiz-content.ts` for the screens, and
- * come from `GET /v1/quiz` for the submit. This file is what both ends agree on.
+ * Not the questions themselves — those come from `GET /v1/quiz`, read without a
+ * session for the screens and with one at submit. This file is what both ends agree on.
  *
  * Everything here takes the definition as an argument rather than reaching for one,
- * and that is deliberate: `/api/quiz` runs these same functions against the LIVE
- * definition while the screens run them against this repo's copy, which is exactly how
- * a stale copy gets caught. One definition of what a valid answer is, two definitions
- * of what the questions are, and only the server's decides.
+ * and that is deliberate: `/api/quiz` runs these same functions against a definition
+ * it re-read itself, while the screens run them against the one they rendered from.
+ * Those are normally the same bytes, and when a deploy lands mid-funnel they are not —
+ * which is exactly how the mismatch gets caught instead of becoming a 400.
  *
  * Client-safe on purpose — the screens import it directly.
  */
@@ -135,6 +135,23 @@ export function validateAnswers(
       return { ok: false, error: `${question.key} has an unknown option` };
     }
     answers[question.key] = given;
+  }
+
+  /* Answers to questions that are no longer on the table are dropped, not forwarded.
+     Changing an earlier answer can close a conditional the visitor had already
+     answered — "Yes" unlocks a follow-up, they answer it, they go back and switch to
+     "No" — and its answer stays in sessionStorage because nothing there knows the
+     question went away. It is not part of the path they actually took, and the API
+     validates what it receives, so sending it risks an UNRECOGNISED_ANSWER on a quiz
+     the visitor completed correctly.
+
+     Computed from the finished map rather than as we go: visibility depends on answers
+     this loop may not have reached yet, so a single pass in question order would judge
+     a conditional against an incomplete picture. Same rule, and same reason, as the
+     app's `answersForSubmission`. */
+  const asked = new Set(askedQuestions(definition, answers).map((q) => q.key));
+  for (const key of Object.keys(answers)) {
+    if (!asked.has(key)) delete answers[key];
   }
 
   const missing = missingAnswers(definition, answers);

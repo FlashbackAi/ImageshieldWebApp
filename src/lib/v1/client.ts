@@ -42,6 +42,14 @@ export type CallOptions = {
    */
   idempotencyKey?: string;
   retryConflict?: boolean;
+  /**
+   * Seconds to let Next cache this response for. Omitted means `no-store`, which is
+   * right for everything the funnel calls but one — see the note in `call`.
+   *
+   * Refused alongside `accessToken`: a cached authenticated response is one visitor's
+   * data served to another, and that mistake is invisible until it isn't.
+   */
+  revalidate?: number;
 };
 
 function withQuery(
@@ -75,6 +83,15 @@ export async function call<T>(
 ): Promise<T> {
   const url = `${apiBaseUrl()}${withQuery(path, options.query)}`;
 
+  /* Thrown rather than quietly ignored. Dropping one of the two would either leak a
+     cached authenticated body or silently stop caching the definition, and neither
+     announces itself at the call site. */
+  if (options.revalidate !== undefined && options.accessToken) {
+    throw new Error(
+      `refusing to cache an authenticated ${method} ${path} — revalidate and accessToken are mutually exclusive`,
+    );
+  }
+
   for (let attempt = 0; ; attempt += 1) {
     const headers: Record<string, string> = { Accept: "application/json" };
     if (options.body !== undefined) {
@@ -95,13 +112,19 @@ export async function call<T>(
         ...(options.body === undefined
           ? {}
           : { body: JSON.stringify(options.body) }),
-        /* NOTHING on this API is cached, and there is no option to opt out of that.
-           Every response is either a write or answered for whoever the bearer token
-           belongs to — including the quiz definition, which is the same bytes for
-           everyone but is fetched with an Authorization header. A cache entry keyed
+        /* Almost nothing on this API may be cached: every response is either a write
+           or answered for whoever the bearer token belongs to, so an entry keyed
            loosely enough to be shared would be one visitor's authenticated response
-           served to another, and the saving would be kilobytes. */
-        cache: "no-store",
+           served to another.
+
+           `GET /v1/quiz` read ANONYMOUSLY is the one exception, and it is the absence
+           of the token that makes it one. There is no visitor in the request, so there
+           is no visitor in the response — it is the same bytes for everyone, and the
+           funnel asks for it on five screens. `revalidate` is refused above when a
+           token is present, so the exception cannot spread to a call that has one. */
+        ...(options.revalidate === undefined
+          ? { cache: "no-store" as const }
+          : { next: { revalidate: options.revalidate } }),
       });
     } catch (cause) {
       const why =

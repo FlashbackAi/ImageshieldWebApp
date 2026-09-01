@@ -1,7 +1,6 @@
 "use client";
 
 import { readFunnel } from "./funnel-state";
-import { QUIZ } from "./quiz-content";
 
 /**
  * Posting the answers, shared by the two screens that do it.
@@ -25,27 +24,33 @@ export type SubmitOutcome =
       reason:
         /** The session went while the quiz was being answered. */
         | "signed-out"
-        /** This repo's copy of the quiz has drifted from the server's, so these
-         *  answers no longer fit it. Nothing to retry — the questions changed. The
-         *  session is untouched, so the visitor re-answers without a second code. */
+        /** The quiz moved under the visitor — a deploy landed between the questions
+         *  being read and the answers being sent. Nothing to retry: the questions
+         *  changed. The session is untouched, so they re-answer without a second
+         *  code. */
         | "retake"
         /** Worth trying again from where the visitor stands. */
         | "failed";
       error: string;
     };
 
-export async function submitAnswers(): Promise<SubmitOutcome> {
+/**
+ * `quizVersion` is the version of the definition the QUESTIONS were rendered from,
+ * passed in by the screen that has it rather than read from a module here. There is no
+ * bundled copy to read any more, and a second fetch just to name a version the caller
+ * is already holding would be a request for nothing.
+ */
+export async function submitAnswers(quizVersion: string): Promise<SubmitOutcome> {
   let response: Response;
   try {
     response = await fetch("/api/quiz", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        /* The version these answers were given against — this repo's, since the
-           questions were rendered from `quiz-content.ts`. The server re-reads the
-           live definition and validates against THAT, so this is only what lets it
-           tell a drifted quiz from a malformed body, and name the drift in a log. */
-        quizVersion: QUIZ.quiz_version,
+        /* The version these answers were given against. The server re-reads the live
+           definition and validates against THAT, so this is only what lets it tell a
+           quiz that moved from a malformed body, and name the drift in a log. */
+        quizVersion,
         answers: readFunnel().answers,
       }),
     });

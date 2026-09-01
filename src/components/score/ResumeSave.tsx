@@ -7,7 +7,7 @@ import { ShieldMark } from "@/components/ShieldMark";
 import { STEP_PATHS } from "@/lib/funnel";
 import { readFunnel } from "@/lib/funnel-state";
 import { quizIncomplete } from "@/lib/quiz";
-import { QUIZ } from "@/lib/quiz-content";
+import { useQuizDefinition } from "@/lib/use-quiz-definition";
 import { submitAnswers, type SubmitOutcome } from "@/lib/quiz-submit";
 
 /**
@@ -32,6 +32,9 @@ import { submitAnswers, type SubmitOutcome } from "@/lib/quiz-submit";
 export function ResumeSave() {
   const router = useRouter();
   const [failed, setFailed] = useState<string | null>(null);
+  /* Not for questions — this screen renders none. It judges whether the stored
+     answers are still complete, and names the version they go up with. */
+  const { quiz, error: definitionError, reload } = useQuizDefinition();
   /* React runs effects twice in development, and this one POSTs. */
   const started = useRef(false);
   /* The in-flight POST, held across those two passes — same reason as the effect in
@@ -47,9 +50,9 @@ export function ResumeSave() {
       if (outcome.reason === "signed-out") {
         return router.replace(STEP_PATHS.details);
       }
-      /* This repo's questions have drifted from the server's. These answers belong to
-         questions that are no longer asked, so retrying the same POST can only fail
-         again — the quiz is the only way on, and the session makes it free. */
+      /* The quiz moved. These answers belong to questions that are no longer
+         asked, so retrying the same POST can only fail again — the quiz is the only
+         way on, and the session makes it free. */
       if (outcome.reason === "retake") {
         return router.replace(STEP_PATHS["quiz-questions"]);
       }
@@ -64,17 +67,22 @@ export function ResumeSave() {
      sits on "Finishing your score" forever. The promise in the ref is what lets each
      pass attach its own handler to the one request. */
   useEffect(() => {
+    /* Waits for the definition: it is what completeness is judged against and what
+       names the version in the POST. Running early would send a verified visitor with
+       perfectly good answers back to question one. */
+    if (quiz === null) return;
+
     let live = true;
 
     if (!started.current) {
       started.current = true;
 
-      if (quizIncomplete(QUIZ, readFunnel())) {
+      if (quizIncomplete(quiz, readFunnel())) {
         router.replace(STEP_PATHS["quiz-questions"]);
         return;
       }
 
-      pending.current = submitAnswers();
+      pending.current = submitAnswers(quiz.quiz_version);
     }
 
     pending.current?.then((outcome) => {
@@ -84,25 +92,33 @@ export function ResumeSave() {
     return () => {
       live = false;
     };
-  }, [apply, router]);
+  }, [apply, quiz, router]);
+
+  /* A definition that will not load stalls this screen the same way a failed write
+     does, and for the visitor it is the same problem, so it uses the same panel. */
+  const stalled = failed ?? (quiz === null ? definitionError : null);
 
   return (
     <div role="status" className="flex flex-col items-center text-center">
       <ShieldMark monotone className="w-[37px] text-brand" />
 
-      {failed ? (
+      {stalled !== null ? (
         <>
           <h1 className="mt-8 max-w-[420px] text-2xl leading-9 font-bold text-ink">
             We couldn&apos;t finish scoring your quiz
           </h1>
           <p className="mt-4 max-w-[420px] text-base text-ink-muted">
-            {failed} Your number is verified, so nothing needs re-sending.
+            {stalled} Your number is verified, so nothing needs re-sending.
           </p>
           <button
             type="button"
             onClick={() => {
               setFailed(null);
-              pending.current = submitAnswers();
+              /* No definition means there is nothing to write yet — re-fetch it and
+                 let the effect start the POST, which it will: `started` is still
+                 false in that case. */
+              if (quiz === null) return reload();
+              pending.current = submitAnswers(quiz.quiz_version);
               pending.current.then(apply);
             }}
             className="mt-8 flex h-14 w-full max-w-[317px] items-center justify-center rounded-full bg-brand text-lg font-semibold text-ink-inverse transition-colors hover:bg-cta"

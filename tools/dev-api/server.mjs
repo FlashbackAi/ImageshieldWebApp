@@ -56,8 +56,8 @@ const config = {
 };
 
 /** A real `GET /v1/quiz` response, captured from the live API. Recapture it when the
- *  server edits the quiz, and paste the same thing into `src/lib/quiz-content.ts` —
- *  the screens render from that copy, this one is what they are checked against. */
+ *  server edits the quiz. Nothing under src/ mirrors it any more: the screens fetch
+ *  the definition, so offline they render whatever this file says. */
 const quiz = JSON.parse(readFileSync(join(HERE, "quiz.json"), "utf8"));
 
 /** Per phone number, so two browsers are two accounts rather than one shared record. */
@@ -239,13 +239,17 @@ const ROUTES = {
     return send(res, 200, mintTokens(phone));
   },
 
-  /* Requires a session, like the real API — and like it for the same reason, which is
-     that the definition was only ever read from inside an authenticated onboarding
-     flow. That 401 is why the funnel does NOT render from this endpoint: the questions
-     are asked before the phone number, from `src/lib/quiz-content.ts`. What still
-     calls this is `/api/quiz`, once, at submit — which is the check that catches
-     `quiz-content.ts` having fallen behind. Edit quiz.json without editing that file
-     and the funnel takes the retake path; that is the drift, reproduced locally.
+  /* Answered WITHOUT a session, like the real API. It used to require one, and that
+     401 is why this repo once carried its own copy of the questions — the funnel asks
+     the quiz before the phone number, so there was no token to read them with. The
+     endpoint is public now, so the copy is gone and both ends read this: the screens
+     once at the start, `/api/quiz` again at submit.
+
+     The submit-time re-read is still the drift check, and it still reproduces locally
+     — but the way to trigger it has changed. Editing quiz.json no longer diverges from
+     anything, because nothing local is being compared against; edit it WHILE a tab is
+     mid-quiz and that tab's answers meet a definition that has moved, which is the
+     real-world case (a deploy mid-funnel) the 409 retake path exists for.
 
      Built field by field rather than by stripping `_readme`, so what the fixture
      serves is exactly the two keys the contract has and nothing that happens to be
@@ -339,12 +343,14 @@ const ROUTES = {
   },
 };
 
-/** Routes that must NOT carry a session — they are how one begins. Everything else,
- *  the quiz definition included, is answered only to a bearer token. */
+/** Routes answered without a session: the three that are how one begins, and the quiz
+ *  definition, which is the same bytes for everyone and carries nothing about anybody.
+ *  Everything else needs a bearer token. */
 const ANONYMOUS = new Set([
   "POST /v1/auth/otp",
   "POST /v1/auth/otp/verify",
   "POST /v1/auth/refresh",
+  "GET /v1/quiz",
 ]);
 
 createServer((req, res) => {

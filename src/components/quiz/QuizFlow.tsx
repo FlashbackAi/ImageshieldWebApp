@@ -11,38 +11,78 @@ import {
   useFunnel,
 } from "@/lib/funnel-state";
 import { askedQuestions } from "@/lib/quiz";
-import { QUIZ } from "@/lib/quiz-content";
+import { useQuizDefinition } from "@/lib/use-quiz-definition";
 import { QuizProgress } from "./QuizProgress";
 
 /**
- * The questions come from `src/lib/quiz-content.ts`, this repo's own copy.
+ * The questions come from `GET /v1/quiz`, read without a session.
  *
- * They are asked before the visitor has verified anything, so there is no session to
- * read `GET /v1/quiz` with — that endpoint 401s without one. The API still has the
- * final say: it validates the keys and values at submit, and a mismatch comes back as
- * a retake rather than a dead end. See the note in `quiz-content.ts`.
+ * They are asked before the visitor has verified anything, which used to rule that
+ * read out and is why this repo carried a hand-copied copy of the questions. The
+ * endpoint is answered unauthenticated now, so there is one definition of the quiz and
+ * it is the server's. The API still has the final say at submit: it validates keys and
+ * values, and a mismatch comes back as a retake rather than a dead end.
  */
 export function QuizFlow({ signedIn }: { signedIn: boolean }) {
   const router = useRouter();
   const stored = useFunnel();
   const params = useSearchParams();
+  const { status, quiz, error, reload } = useQuizDefinition();
 
   /* Answers stored against a retired version are answers to different questions, so
      they are dropped rather than shown as ticks beside questions nobody was asked.
 
      The clearing happens in an effect because it writes to the store, and the store
      is what this component renders from — writing during render would notify
-     subscribers mid-render. The render doesn't wait for it: `live` already ignores
+     subscribers mid-render. The render doesn't wait for it: `answers` already ignores
      answers whose version doesn't match, so the first paint is correct and the
-     effect only makes the storage agree with it. */
+     effect only makes the storage agree with it.
+
+     Keyed on the version rather than running once on mount: the definition arrives
+     after the first render now, so a mount-only effect would reconcile against
+     nothing and leave a stale tab's answers in place. */
+  const liveVersion = quiz?.quiz_version;
   useEffect(() => {
-    syncQuizVersion(QUIZ.quiz_version);
-  }, []);
+    if (liveVersion !== undefined) syncQuizVersion(liveVersion);
+  }, [liveVersion]);
+
+  if (status === "loading") {
+    /* Deliberately not a spinner. This is the funnel's first real screen and the
+       definition is usually cached by the time anyone reaches it, so a spinner would
+       mostly be a flash; the reserved height keeps the header from jumping when the
+       questions land. */
+    return <div className="min-h-[60vh]" aria-busy="true" />;
+  }
+
+  /* Failing HERE, on the first question, is the point. The alternative — rendering
+     questions from a bundled copy the server may have moved past — fails at the very
+     END, after the visitor has answered everything and verified a phone number. */
+  if (status === "failed" || quiz === null) {
+    return (
+      <div className="mx-auto w-full max-w-[600px] px-5 pt-20 pb-24">
+        <p className="text-base text-ink-muted">
+          {error ?? "We couldn't load the quiz just now."}
+        </p>
+        <button
+          type="button"
+          onClick={reload}
+          className="mt-6 flex h-14 w-full max-w-[512px] items-center justify-center rounded-full bg-brand text-base font-semibold text-ink-inverse transition-colors hover:bg-cta"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  /* Re-bound after the guard above so the closures below see a non-null definition.
+     `pick` is a hoisted function declaration, which TypeScript will not narrow a
+     captured binding for — it cannot prove the guard ran first. */
+  const definition = quiz;
 
   const answers =
-    stored.quizVersion === QUIZ.quiz_version ? stored.answers : {};
+    stored.quizVersion === definition.quiz_version ? stored.answers : {};
 
-  const asked = askedQuestions(QUIZ, answers);
+  const asked = askedQuestions(definition, answers);
 
   /* A definition with nothing to ask is not a state this screen can render its way
      out of, and it should be impossible — but `asked[step - 1]` would be undefined
@@ -80,11 +120,11 @@ export function QuizFlow({ signedIn }: { signedIn: boolean }) {
    * number is asked of someone who has a score waiting for them.
    *
    * `signedIn` is not a shortcut for returning visitors; it exists for one path that
-   * would otherwise cost a second code. When the local questions have drifted from
-   * the server's, `/api/quiz` answers 409 and the screens send the visitor back HERE
-   * to answer again — and by then the code has already been spent and a session
-   * already exists. Routing that visitor to `/details` would text them a fresh code
-   * to prove a number they proved a minute ago. They go straight to the write.
+   * would otherwise cost a second code. When a deploy moves the quiz mid-funnel,
+   * `/api/quiz` answers 409 and the screens send the visitor back HERE to answer
+   * again — and by then the code has already been spent and a session already exists.
+   * Routing that visitor to `/details` would text them a fresh code to prove a number
+   * they proved a minute ago. They go straight to the write.
    */
   function finish() {
     const onwards = signedIn
@@ -101,7 +141,7 @@ export function QuizFlow({ signedIn }: { signedIn: boolean }) {
     /* Recount off the answer we just wrote, not the render's stale copy: an answer
        can unlock a question that comes after this one. */
     const total = askedQuestions(
-      QUIZ,
+      definition,
       saveAnswer(question.key, option).answers,
     ).length;
     if (step < total) go(step + 1);

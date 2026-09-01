@@ -18,10 +18,10 @@ import { presentableFailure } from "@/lib/v1/errors";
  * Here, a failed write is just a failed write: the session outlives it, and both
  * `/calculating` and the score screen retry against that same session.
  *
- * This is also where a stale `quiz-content.ts` is caught. The questions the visitor
- * answered came from this repo, not from the API, so the re-read below is the only
- * thing standing between a drifted local quiz and a bare 400 — see the 409 it turns
- * that into.
+ * This is also where a quiz that moved mid-funnel is caught. The questions the visitor
+ * answered were fetched when they started, so the re-read below is the only thing
+ * standing between a definition that has changed since and a bare 400 — see the 409 it
+ * turns that into.
  *
  * Nothing in the body says whose record this is. It cannot: the API takes the person
  * from the bearer token.
@@ -84,10 +84,11 @@ export async function POST(request: Request) {
 
   const parsed = validateAnswers(live, body?.answers);
   if (!parsed.ok) {
-    /* Answers that fitted `quiz-content.ts` but not what the server now serves. There
-       is no write to retry — these are answers to different questions. The session is
-       untouched, so the retake below costs the visitor answers and not a second code;
-       `QuizFlow` routes them straight back to `/calculating` when they are done. */
+    /* Answers that fitted the definition the visitor was served but not the one the
+       server has now. There is no write to retry — these are answers to different
+       questions. The session is untouched, so the retake below costs the visitor
+       answers and not a second code; `QuizFlow` routes them straight back to
+       `/calculating` when they are done. */
     console.warn("answers no longer fit the live quiz", parsed.error);
     return Response.json(
       {

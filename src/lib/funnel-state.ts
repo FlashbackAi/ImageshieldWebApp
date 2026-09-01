@@ -23,8 +23,8 @@ export type FunnelState = {
    *  shape `validateAnswers` expects, so this object POSTs straight through. */
   answers: Record<string, string | string[]>;
   /**
-   * The `quiz_version` the answers above were given against — this repo's, since the
-   * questions are rendered from `quiz-content.ts`.
+   * The `quiz_version` the answers above were given against, as it came back from
+   * `GET /v1/quiz` when the questions were fetched.
    *
    * Carried because the API pins responses to a definition: `POST /v1/quiz/responses`
    * takes a version and rejects answers whose keys or values aren't in it. Locally it

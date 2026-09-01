@@ -18,7 +18,7 @@ export const metadata: Metadata = {
  *
  * A visitor with no session has not verified, so there is nothing to write with and
  * the details form is where they belong. The questions are NOT re-read here — they
- * come from `quiz-content.ts` like everywhere else on the client, and `/api/quiz` is
+ * come from `GET /v1/quiz` like everywhere else on the client, and `/api/quiz` is
  * the one place that checks them against what the server is serving.
  *
  * One centred block, and the header floats over it — the design centres the mark

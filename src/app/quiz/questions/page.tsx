@@ -18,8 +18,9 @@ export const metadata: Metadata = {
  *
  * Open to anyone. Nothing is asked of the visitor before this point and nothing is
  * sent anywhere from it — the answers go into sessionStorage and are submitted after
- * the phone number is verified. The questions come from `src/lib/quiz-content.ts`
- * because `GET /v1/quiz` needs a session that does not exist yet.
+ * the phone number is verified. The questions come from `GET /v1/quiz`, fetched
+ * through this app's own `/api/quiz-definition` because the API host is server-only
+ * config and the browser has no CORS grant to call it directly.
  *
  * The one thing this page reads a cookie for is `signedIn`, and it is not a gate:
  * see the note where `QuizFlow` uses it.

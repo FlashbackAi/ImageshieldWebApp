@@ -12,7 +12,7 @@ import {
 import { backPath, nextPath, STEP_PATHS } from "@/lib/funnel";
 import { readFunnel, writeFunnel } from "@/lib/funnel-state";
 import { quizIncomplete } from "@/lib/quiz";
-import { QUIZ } from "@/lib/quiz-content";
+import { useQuizDefinition } from "@/lib/use-quiz-definition";
 import { Calendar, ChatBubble, ContactCard, Envelope } from "./icons";
 
 /**
@@ -91,12 +91,21 @@ export function DetailsForm() {
 
      Read the store directly rather than through `useFunnel`: the hook's first value
      is the empty server snapshot, which would read as an abandoned quiz and bounce
-     someone who answered everything. */
+     someone who answered everything.
+
+     Waits for the definition, and that guard is load-bearing now that the questions
+     are fetched: `quizIncomplete` reports true for a null definition, so running this
+     before it arrives would bounce EVERY visitor — including one who has answered
+     everything — straight back to question one. A definition that fails to load
+     leaves `quiz` null and this lets the visitor through: the write on `/calculating`
+     re-reads it server-side and is the honest place to refuse. */
+  const { quiz } = useQuizDefinition();
   useEffect(() => {
-    if (quizIncomplete(QUIZ, readFunnel())) {
+    if (quiz === null) return;
+    if (quizIncomplete(quiz, readFunnel())) {
       router.replace(STEP_PATHS["quiz-questions"]);
     }
-  }, [router]);
+  }, [quiz, router]);
 
   /* One lookup feeds both sides of the picker: the code goes into the composed
      number, the flag onto the display drawn over the <select>. */
