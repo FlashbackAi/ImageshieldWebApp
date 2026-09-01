@@ -25,8 +25,14 @@ export type QuizQuestion = {
   /** False for a question the visitor may leave blank. Absent means required —
    *  the live definition only sets it on `platforms`, and only to false. */
   required?: boolean;
-  /** Asked only when another answer took a particular value. */
-  requires?: { key: string; value: string };
+  /**
+   * Asked only when another answer took one of these values.
+   *
+   * The live definition writes the unlock as a LIST — `{ key, values: [...] }` — and
+   * the singular `value` is accepted beside it because both spellings are in use.
+   * Read `unlockValues` rather than either field directly.
+   */
+  requires?: { key: string; value?: string; values?: readonly string[] };
 };
 
 export type QuizDefinition = {
@@ -47,12 +53,30 @@ const MAX_SELECTIONS = 50;
  * A `requires` against a multi-select is satisfied by the value being among the
  * picks, not by the whole answer equalling it — same rule the app and the deployed
  * web client both apply.
+ *
+ * The unlock is a LIST of accepted values, which is the shape the live definition
+ * sends: `discovery_method` opens on "Once or twice" OR "Repeated pattern". Reading
+ * the singular `value` off a `values` payload compared every answer against
+ * `undefined`, so the question stayed shut whatever was picked and could not be
+ * reached by any route through the quiz — `parseDefinition` now refuses a `requires`
+ * it cannot read, so a third spelling fails on the first screen instead of quietly
+ * costing a question again.
  */
+export function unlockValues(
+  condition: NonNullable<QuizQuestion["requires"]>,
+): readonly string[] {
+  if (condition.values !== undefined) return condition.values;
+  return condition.value === undefined ? [] : [condition.value];
+}
+
 function isAsked(question: QuizQuestion, answers: QuizAnswers): boolean {
-  if (question.requires === undefined) return true;
-  const given = answers[question.requires.key];
-  if (typeof given === "string") return given === question.requires.value;
-  if (Array.isArray(given)) return given.includes(question.requires.value);
+  const condition = question.requires;
+  if (condition === undefined) return true;
+
+  const unlocks = unlockValues(condition);
+  const given = answers[condition.key];
+  if (typeof given === "string") return unlocks.includes(given);
+  if (Array.isArray(given)) return given.some((v) => unlocks.includes(v));
   return false;
 }
 

@@ -20,6 +20,30 @@ import { readPublicQuizDefinition, readQuizDefinitionAsUser } from "./v1/quiz";
  * the API after the write was attempted.
  */
 
+/**
+ * Whether a conditional question's unlock is one this client knows how to evaluate.
+ *
+ * Checked rather than assumed because of how the last mismatch failed. The definition
+ * spells the unlock `{ key, values: [...] }`; this repo read `{ key, value }`, so the
+ * comparison ran against `undefined`, `isAsked` answered false for every possible
+ * answer, and `discovery_method` dropped out of a six-question quiz with nothing on
+ * screen or in a log to say a question was missing. A shape nobody can read is a
+ * question nobody can reach, so it fails here — on the first screen, with a retry —
+ * rather than silently shortening the quiz.
+ */
+function isReadableCondition(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const condition = value as Record<string, unknown>;
+  if (typeof condition.key !== "string" || condition.key === "") return false;
+
+  const single = typeof condition.value === "string" && condition.value !== "";
+  const many =
+    Array.isArray(condition.values) &&
+    condition.values.length > 0 &&
+    condition.values.every((v) => typeof v === "string");
+  return single || many;
+}
+
 /** Shape-checked rather than trusted: a malformed response should degrade to the
  *  unavailable screen, not crash a render halfway through the funnel. */
 function parseDefinition(value: unknown): QuizDefinition | null {
@@ -45,6 +69,7 @@ function parseDefinition(value: unknown): QuizDefinition | null {
     ) {
       return null;
     }
+    if (q.requires !== undefined && !isReadableCondition(q.requires)) return null;
   }
 
   return {
