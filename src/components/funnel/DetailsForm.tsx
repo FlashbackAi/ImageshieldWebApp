@@ -13,7 +13,7 @@ import { backPath, nextPath, STEP_PATHS } from "@/lib/funnel";
 import { readFunnel, writeFunnel } from "@/lib/funnel-state";
 import { quizIncomplete } from "@/lib/quiz";
 import { useQuizDefinition } from "@/lib/use-quiz-definition";
-import { Calendar, ChatBubble, ContactCard, Envelope } from "./icons";
+import { Calendar, ContactCard, Envelope } from "./icons";
 
 /**
  * First and last name, email, date of birth and phone — the gate in front of the
@@ -36,7 +36,11 @@ import { Calendar, ChatBubble, ContactCard, Envelope } from "./icons";
  */
 
 const FIELD =
-  "h-14 w-full rounded-[14px] border-[1.6px] bg-canvas pr-4 pl-[55px] text-base text-ink transition-colors placeholder:text-ink-placeholder focus:outline-none";
+  "h-14 w-full rounded-[14px] border-[1.6px] bg-canvas pr-4 text-base text-ink transition-colors placeholder:text-ink-placeholder focus:outline-none";
+
+/* Clears the icon `Field` draws. The phone field keeps its own, wider inset
+   instead, because the country picker sits where the icon would. */
+const FIELD_PL = "pl-[55px]";
 
 /**
  * Types a birth date into `YYYY-MM-DD` as it is entered.
@@ -186,7 +190,7 @@ export function DetailsForm() {
                 placeholder="First Name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className={`${FIELD} border-line-soft focus:border-brand`}
+                className={`${FIELD} ${FIELD_PL} border-line-soft focus:border-brand`}
               />
             </Field>
           </div>
@@ -203,7 +207,7 @@ export function DetailsForm() {
                 placeholder="Last Name"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className={`${FIELD} border-line-soft focus:border-brand`}
+                className={`${FIELD} ${FIELD_PL} border-line-soft focus:border-brand`}
               />
             </Field>
           </div>
@@ -222,7 +226,7 @@ export function DetailsForm() {
             placeholder="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className={`${FIELD} border-line-soft focus:border-brand`}
+            className={`${FIELD} ${FIELD_PL} border-line-soft focus:border-brand`}
           />
         </Field>
 
@@ -263,19 +267,27 @@ export function DetailsForm() {
             placeholder="Date of Birth (YYYY-MM-DD)"
             value={dob}
             onChange={(e) => setDob(formatDob(e.target.value))}
-            className={`${FIELD} border-line-soft focus:border-brand`}
+            className={`${FIELD} ${FIELD_PL} border-line-soft focus:border-brand`}
           />
         </Field>
 
         {/*
-         * The design draws one plain "Cellphone" box, but the server rejects a
-         * number with no country code rather than guessing one, so the picker has
-         * to be here. It sits inside the field's right edge so the box still reads
-         * as the single control the design shows.
+         * The design draws the picker inside the field's LEFT edge, with a rule
+         * between it and the digits, so the two read as one control rather than a
+         * box with a badge parked in it. That is also the order the number is
+         * spoken and dialled in — country first, then the digits — so the eye
+         * crosses the field once instead of jumping back for the code.
+         *
+         * It takes the slot the other fields give their icon, so this field carries
+         * none: the flag says "phone number" more plainly than a chat bubble would.
+         *
+         * The three insets are measured off the design — the picker starts 28px in,
+         * the rule lands at 108px, the digits at 120px — and the picker is boxed at
+         * 80px so the longest code on the list (+971) still clears the rule.
          */}
-        <Field icon={<ChatBubble />}>
+        <div className="relative">
           <label htmlFor={`${ids}-phone`} className="sr-only">
-            Cellphone number
+            Phone number
           </label>
           <input
             id={`${ids}-phone`}
@@ -284,10 +296,10 @@ export function DetailsForm() {
             inputMode="tel"
             autoComplete="tel-national"
             required
-            placeholder="Cellphone"
+            placeholder="Phone number"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className={`${FIELD} border-line-soft pr-[124px] focus:border-brand`}
+            className={`${FIELD} border-line-soft pl-[120px] focus:border-brand`}
           />
           <label htmlFor={`${ids}-code`} className="sr-only">
             Country calling code
@@ -305,13 +317,14 @@ export function DetailsForm() {
            * So the <select> carries the names and is laid transparent over a display
            * of our own, which shows the flag and the code and takes no taps of its
            * own. `peer` passes the real control's focus and hover through to it, so
-           * the thing that looks like the control still reacts like one.
+           * the thing that looks like the control still reacts like one — in ink
+           * rather than a border, which the design does not draw around the picker.
            *
            * Keyed by country, not by calling code: the US and Canada both send +1,
            * and two <option>s sharing a value both come up selected — the browser
            * then shows whichever is last, so picking the US displayed Canada.
            */}
-          <div className="absolute top-1/2 right-2.5 h-11 -translate-y-1/2">
+          <div className="absolute top-1/2 left-7 h-8 w-20 -translate-y-1/2">
             <select
               id={`${ids}-code`}
               name="country"
@@ -329,14 +342,21 @@ export function DetailsForm() {
             </select>
             <span
               aria-hidden
-              className="pointer-events-none flex h-full items-center gap-1.5 rounded-[10px] border-[1.6px] border-line-soft bg-surface pr-1.5 pl-2.5 text-sm font-semibold text-ink-soft transition-colors peer-hover:border-line peer-focus-visible:border-brand"
+              className="pointer-events-none flex h-full items-center gap-1.5 text-sm font-medium text-ink-muted transition-colors peer-hover:text-ink peer-focus-visible:text-brand"
             >
               <span className="text-base leading-none">{selected?.flag}</span>+
               {callingCode}
               <ChevronDown className="size-4 text-ink-faint" />
             </span>
           </div>
-        </Field>
+          {/* The rule between picker and digits. Its own element rather than a
+              border on either side: it stops short of the field's top and bottom,
+              which a border on a full-height box cannot do. */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 left-[108px] h-[30px] w-px -translate-y-1/2 bg-line-soft"
+          />
+        </div>
       </div>
 
       {error ? (
