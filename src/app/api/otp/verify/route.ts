@@ -1,3 +1,7 @@
+import {
+  deletedAccountMessage,
+  deletedAccountResponse,
+} from "@/lib/deleted-account";
 import { adoptTokens, clearChallenge, readChallenge } from "@/lib/session";
 import { saveLead } from "@/lib/quiz-save";
 import { allow } from "@/lib/rate-limit";
@@ -74,6 +78,11 @@ export async function POST(request: Request) {
     const pair = await verifyOtp(challenge.challengeId, code);
     await adoptTokens(pair);
   } catch (error) {
+    /* The code was accepted and the account behind the number is gone or going.
+       Ahead of the 400/401 branch below, which would call a correct code wrong. */
+    const deleted = deletedAccountMessage(error);
+    if (deleted) return deletedAccountResponse(deleted);
+
     if (error instanceof ApiFailure) {
       /* 404 NOT_FOUND, not the 401 the collection documents — verified against the
          live API. It means the challenge is gone: expired, or burned by too many

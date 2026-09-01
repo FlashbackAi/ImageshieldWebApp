@@ -1,3 +1,7 @@
+import {
+  deletedAccountMessage,
+  deletedAccountResponse,
+} from "@/lib/deleted-account";
 import { allowOtpSend } from "@/lib/rate-limit";
 import { readChallenge, startChallenge } from "@/lib/session";
 import { requestOtp, resendCooldownSeconds } from "@/lib/v1/auth";
@@ -39,6 +43,12 @@ export async function POST(request: Request) {
   try {
     reissued = await requestOtp(challenge.phone);
   } catch (error) {
+    /* A number under a deletion cooldown fails the re-issue too, and for a reason
+       no resend can outlast — so it is named here rather than counted as one more
+       rate limit. Ahead of the 429 branch, which is the status it arrives with. */
+    const deleted = deletedAccountMessage(error);
+    if (deleted) return deletedAccountResponse(deleted);
+
     if (error instanceof ApiFailure && error.status === 429) {
       return Response.json(
         {

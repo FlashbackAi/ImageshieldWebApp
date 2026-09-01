@@ -25,6 +25,9 @@ import { readFunnel, useFunnel } from "@/lib/funnel-state";
  *   expired  the pending challenge cookie is gone (15 minutes), so neither verifying
  *            nor resending can work — both answer 401. The only way on is a new
  *            number, so that is the only thing offered.
+ *   blocked  the API refused the NUMBER, not the code: its last account was deleted
+ *            and is still inside its waiting period (409, `blocked`). The code may
+ *            well have been right, so nothing here is drawn as a mistake to correct.
  */const LENGTH = 6;
 
 /** Only used until the API has told us its own cooldown — `/api/otp/start` relays
@@ -33,7 +36,7 @@ const FALLBACK_COOLDOWN_S = 60;
 
 const EMPTY = Array<string>(LENGTH).fill("");
 
-type Stage = "code" | "expired";
+type Stage = "code" | "expired" | "blocked";
 
 export function OtpForm() {
   const router = useRouter();
@@ -82,9 +85,18 @@ export function OtpForm() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code: entered }),
         });
-        const body = (await res.json()) as { error?: string };
+        const body = (await res.json()) as { error?: string; blocked?: boolean };
 
         if (!res.ok) {
+          /* The number is serving a deletion cooldown. This arrives AFTER the code
+             was accepted, so the digits stay on screen and the row is not cleared —
+             there is nothing wrong with them to fix. */
+          if (body.blocked) {
+            setStage("blocked");
+            setError(body.error ?? "This number can't open a new account yet.");
+            return;
+          }
+
           /* The session went before the code came back. Retyping and resending both
              answer 401 from here, so the screen stops offering either. */
           if (res.status === 401) {
@@ -173,9 +185,15 @@ export function OtpForm() {
       const res = await fetch("/api/otp/resend", { method: "POST" });
       const body = (await res.json()) as {
         error?: string;
+        blocked?: boolean;
         resendAfter?: number | null;
       };
       if (!res.ok) {
+        if (body.blocked) {
+          setStage("blocked");
+          setError(body.error ?? "This number can't open a new account yet.");
+          return;
+        }
         if (res.status === 401) {
           setStage("expired");
           setError(body.error ?? "Your session expired. Start again.");
@@ -207,6 +225,26 @@ export function OtpForm() {
       Use a different number
     </Link>
   );
+
+  if (stage === "blocked") {
+    return (
+      <div className="mt-7">
+        <p role="alert" className="text-sm text-danger">
+          {error ?? "This number can't open a new account yet."}
+        </p>
+        <p className="mt-3 text-[14px] leading-[21px] text-black/45">
+          The wait belongs to the number, not to the code you entered — resending
+          won&apos;t shorten it. Another number can start straight away.
+        </p>
+        <Link
+          href={STEP_PATHS.details}
+          className="mt-8 flex h-14 w-full items-center justify-center rounded-full bg-brand text-base font-semibold text-ink-inverse transition-colors hover:bg-cta sm:w-[317px]"
+        >
+          Use a different number
+        </Link>
+      </div>
+    );
+  }
 
   if (stage === "expired") {
     return (

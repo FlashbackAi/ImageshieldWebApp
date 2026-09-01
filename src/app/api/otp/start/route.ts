@@ -1,3 +1,7 @@
+import {
+  deletedAccountMessage,
+  deletedAccountResponse,
+} from "@/lib/deleted-account";
 import { validateContact } from "@/lib/contact";
 import { allowOtpSend } from "@/lib/rate-limit";
 import { startChallenge } from "@/lib/session";
@@ -44,6 +48,12 @@ export async function POST(request: Request) {
   try {
     challenge = await requestOtp(contact.phone);
   } catch (error) {
+    /* Ahead of the 429 branch, because a deleted number's cooldown IS a 429: it
+       would otherwise be relayed as "too many codes requested", which reads as a
+       passing squall over something that can last days. */
+    const deleted = deletedAccountMessage(error);
+    if (deleted) return deletedAccountResponse(deleted);
+
     if (error instanceof ApiFailure) {
       /* The API counts per-IP, per-phone and a resend cooldown, and says which with
          a `retry_after`. Relaying it beats a generic 502: the visitor is told to
