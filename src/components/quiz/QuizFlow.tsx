@@ -82,7 +82,7 @@ export function QuizFlow({ signedIn }: { signedIn: boolean }) {
   const answers =
     stored.quizVersion === definition.quiz_version ? stored.answers : {};
 
-  const asked = askedQuestions(definition, answers);
+  const asked = askedQuestions(definition);
 
   /* A definition with nothing to ask is not a state this screen can render its way
      out of, and it should be impossible — but `asked[step - 1]` would be undefined
@@ -97,9 +97,10 @@ export function QuizFlow({ signedIn }: { signedIn: boolean }) {
     );
   }
 
-  /* 1-based in the URL because it's also what the "(1/6)" label counts. Clamped:
-     answering the unlock question "No" on the way back shortens the list under a
-     step that was valid a moment ago. */
+  /* 1-based in the URL because it's also what the "(1/6)" label counts. Still clamped
+     even though the list is a fixed length now: `?q=` is in the URL, so a hand-typed
+     or stale-bookmarked step out of range would otherwise index past the end and
+     every line below dereferences the result. */
   const step = Math.min(
     Math.max(Number(params.get("q")) || 1, 1),
     asked.length,
@@ -138,13 +139,13 @@ export function QuizFlow({ signedIn }: { signedIn: boolean }) {
       toggleAnswer(question.key, option, question.options);
       return;
     }
-    /* Recount off the answer we just wrote, not the render's stale copy: an answer
-       can unlock a question that comes after this one. */
-    const total = askedQuestions(
-      definition,
-      saveAnswer(question.key, option).answers,
-    ).length;
-    if (step < total) go(step + 1);
+    /* The count no longer moves with the answer — every question in the definition
+       is asked — so this advances against `asked.length` and `saveAnswer`'s return
+       value goes unused. The write still has to happen before the navigation: the
+       next screen renders from the store, and routing first would paint it without
+       the answer that was just picked. */
+    saveAnswer(question.key, option);
+    if (step < asked.length) go(step + 1);
     else finish();
   }
 

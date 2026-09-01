@@ -26,11 +26,13 @@ export type QuizQuestion = {
    *  the live definition only sets it on `platforms`, and only to false. */
   required?: boolean;
   /**
-   * Asked only when another answer took one of these values.
+   * The definition's conditional unlock — sent by the server, IGNORED by this client.
    *
-   * The live definition writes the unlock as a LIST — `{ key, values: [...] }` — and
-   * the singular `value` is accepted beside it because both spellings are in use.
-   * Read `unlockValues` rather than either field directly.
+   * The quiz is asked as one fixed sequence now: every question the definition lists
+   * is rendered, in the order it lists them, whatever else has been answered. The
+   * live definition still carries this on `discovery_method`, so it stays on the type
+   * — a shape that omitted it would make `parseDefinition` look like it had checked a
+   * field it never saw — but nothing here reads it. See `askedQuestions`.
    */
   requires?: { key: string; value?: string; values?: readonly string[] };
 };
@@ -48,44 +50,21 @@ const MAX_VALUE_LENGTH = 200;
 const MAX_SELECTIONS = 50;
 
 /**
- * Whether a question is on the table given what has been answered so far.
+ * The questions being asked: all of them, in the order the definition lists them.
  *
- * A `requires` against a multi-select is satisfied by the value being among the
- * picks, not by the whole answer equalling it — same rule the app and the deployed
- * web client both apply.
+ * This used to filter on `requires`, so a question joined the sequence only once
+ * another answer unlocked it. The quiz is no longer asked that way — the sequence is
+ * fixed, and `discovery_method` is question 6 of 6 for everyone rather than a question
+ * only the visitors who reported prior misuse ever reach.
  *
- * The unlock is a LIST of accepted values, which is the shape the live definition
- * sends: `discovery_method` opens on "Once or twice" OR "Repeated pattern". Reading
- * the singular `value` off a `values` payload compared every answer against
- * `undefined`, so the question stayed shut whatever was picked and could not be
- * reached by any route through the quiz — `parseDefinition` now refuses a `requires`
- * it cannot read, so a third spelling fails on the first screen instead of quietly
- * costing a question again.
+ * Still a function rather than `definition.questions` inlined at the call sites, and
+ * the reason is the step count. Three places count these — the `(3/6)` label, "is this
+ * the last question", and whether stored answers cover the quiz — and they have to
+ * agree with each other and with what `/api/quiz` validates. One definition of "the
+ * questions" is what keeps them agreeing, and one place to change if unlocks return.
  */
-export function unlockValues(
-  condition: NonNullable<QuizQuestion["requires"]>,
-): readonly string[] {
-  if (condition.values !== undefined) return condition.values;
-  return condition.value === undefined ? [] : [condition.value];
-}
-
-function isAsked(question: QuizQuestion, answers: QuizAnswers): boolean {
-  const condition = question.requires;
-  if (condition === undefined) return true;
-
-  const unlocks = unlockValues(condition);
-  const given = answers[condition.key];
-  if (typeof given === "string") return unlocks.includes(given);
-  if (Array.isArray(given)) return given.some((v) => unlocks.includes(v));
-  return false;
-}
-
-/** The questions actually being asked — conditionals join as they unlock. */
-export function askedQuestions(
-  definition: QuizDefinition,
-  answers: QuizAnswers,
-): QuizQuestion[] {
-  return definition.questions.filter((q) => isAsked(q, answers));
+export function askedQuestions(definition: QuizDefinition): QuizQuestion[] {
+  return [...definition.questions];
 }
 
 /** Questions still unanswered — drives the Continue button and the server check. */
@@ -93,7 +72,7 @@ export function missingAnswers(
   definition: QuizDefinition,
   answers: QuizAnswers,
 ): string[] {
-  return askedQuestions(definition, answers)
+  return askedQuestions(definition)
     .filter((q) => {
       /* `required: false` is the server saying this one may be skipped, and the
          live `platforms` question carries it. Treating every asked question as
@@ -161,23 +140,12 @@ export function validateAnswers(
     answers[question.key] = given;
   }
 
-  /* Answers to questions that are no longer on the table are dropped, not forwarded.
-     Changing an earlier answer can close a conditional the visitor had already
-     answered — "Yes" unlocks a follow-up, they answer it, they go back and switch to
-     "No" — and its answer stays in sessionStorage because nothing there knows the
-     question went away. It is not part of the path they actually took, and the API
-     validates what it receives, so sending it risks an UNRECOGNISED_ANSWER on a quiz
-     the visitor completed correctly.
-
-     Computed from the finished map rather than as we go: visibility depends on answers
-     this loop may not have reached yet, so a single pass in question order would judge
-     a conditional against an incomplete picture. Same rule, and same reason, as the
-     app's `answersForSubmission`. */
-  const asked = new Set(askedQuestions(definition, answers).map((q) => q.key));
-  for (const key of Object.keys(answers)) {
-    if (!asked.has(key)) delete answers[key];
-  }
-
+  /* There is no second pass dropping answers here any more. It existed for closed
+     conditionals — switching an earlier answer could hide a question already answered,
+     and its answer outlived the question in sessionStorage — and with every question
+     always asked, nothing can go stale that way. The loop above is the only filter
+     left, and it builds `answers` from the definition's own keys, so a key the server
+     does not serve cannot reach the write regardless. */
   const missing = missingAnswers(definition, answers);
   if (missing.length > 0) {
     return { ok: false, error: `unanswered: ${missing.join(", ")}` };
