@@ -13,7 +13,8 @@ import { backPath, nextPath, STEP_PATHS } from "@/lib/funnel";
 import { readFunnel, writeFunnel } from "@/lib/funnel-state";
 import { quizIncomplete } from "@/lib/quiz";
 import { useQuizDefinition } from "@/lib/use-quiz-definition";
-import { Calendar, ContactCard, Envelope } from "./icons";
+import { DobField } from "./DobField";
+import { ContactCard, Envelope } from "./icons";
 
 /**
  * First and last name, email, date of birth and phone — the gate in front of the
@@ -41,23 +42,6 @@ const FIELD =
 /* Clears the icon `Field` draws. The phone field keeps its own, wider inset
    instead, because the country picker sits where the icon would. */
 const FIELD_PL = "pl-[55px]";
-
-/**
- * Types a birth date into `YYYY-MM-DD` as it is entered.
- *
- * Only ever inserts the separators — it does not reorder, reject or complete
- * anything, so the field never fights someone mid-keystroke and a backspace always
- * removes what it looks like it removes. Whether the date is real is settled by
- * `validateDob` on the server, which is the copy that matters.
- *
- * Eight digits is the whole date; anything past that is a stray keypress and is
- * dropped rather than silently changing the year.
- */
-function formatDob(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 8);
-  const parts = [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 8)];
-  return parts.filter((part) => part !== "").join("-");
-}
 
 function Field({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
@@ -230,46 +214,7 @@ export function DetailsForm() {
           />
         </Field>
 
-        {/*
-         * `type="date"` rather than a text box asking for YYYY-MM-DD: it is the only
-         * input that gives back exactly the format `PATCH /v1/me/profile` stores, with
-         * no parsing on either side, and on a phone it opens the OS date picker rather
-         * than a keyboard. The cost is that it shows its own format hint instead of a
-         * placeholder, so the label sits above the field — the one field here that
-         * cannot rely on a placeholder to name itself.
-         *
-         * The native picker button is hidden and the field opens the picker on click,
-         * so it keeps the left-hand icon the other three fields have rather than
-         * carrying a second calendar glyph on its right. `showPicker` throws in
-         * browsers that don't have it, which is fine: those fall back to typing.
-         */}
-        <Field icon={<Calendar />}>
-          <label htmlFor={`${ids}-dob`} className="sr-only">
-            Date of birth
-          </label>
-          <input
-            id={`${ids}-dob`}
-            name="dob"
-            /* Text, not `type="date"`. The native control draws its format hint in
-               the browser's LOCALE order — dd/mm/yyyy here, mm/dd/yyyy in the US —
-               and that string is the input's own value text, not a placeholder, so
-               it takes the field's ink colour and cannot be styled down to
-               `ink-placeholder` like the three fields around it. Neither the order
-               nor the colour is controllable. A text box gives back both, and lets
-               this field name itself with a placeholder the way the others do.
-               What it costs is the OS date picker — no great loss for a birth date,
-               which opens the picker on the current month and makes the visitor
-               page back twenty years. */
-            type="text"
-            inputMode="numeric"
-            autoComplete="bday"
-            required
-            placeholder="Date of Birth (YYYY-MM-DD)"
-            value={dob}
-            onChange={(e) => setDob(formatDob(e.target.value))}
-            className={`${FIELD} ${FIELD_PL} border-line-soft focus:border-brand`}
-          />
-        </Field>
+        <DobField id={`${ids}-dob`} value={dob} onChange={setDob} />
 
         {/*
          * The design draws the picker inside the field's LEFT edge, with a rule

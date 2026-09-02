@@ -41,6 +41,33 @@ export type Contact = {
 const MIN_AGE_YEARS = 13;
 const MAX_AGE_YEARS = 120;
 
+/**
+ * The same range as two dates, for the calendar to draw.
+ *
+ * Derived here rather than re-expressed in the picker, because a picker that offers
+ * a date `validateDob` refuses is a form that rejects what it just invited you to
+ * click — and the two drifting apart is exactly what happens when the bound is
+ * written twice.
+ *
+ * `latest` is the day someone turns MIN_AGE today, and is inclusive: `ageOn` returns
+ * exactly MIN_AGE for it. `earliest` is the day AFTER their MAX_AGE+1 birthday, which
+ * looks off by one and is not — `age > MAX_AGE_YEARS` only rejects at MAX_AGE + 1, so
+ * someone 120 years and six months old is still accepted and the floor has to leave
+ * room for them.
+ *
+ * UTC on both sides, matching `ageOn`. `today` is a parameter so this is testable
+ * without stubbing the clock.
+ */
+export function dobBounds(today: Date = new Date()): { earliest: Date; latest: Date } {
+  const y = today.getUTCFullYear();
+  const m = today.getUTCMonth();
+  const d = today.getUTCDate();
+  return {
+    earliest: new Date(Date.UTC(y - MAX_AGE_YEARS - 1, m, d + 1)),
+    latest: new Date(Date.UTC(y - MIN_AGE_YEARS, m, d)),
+  };
+}
+
 /** `YYYY-MM-DD` and nothing else — the shape, before the date is checked for being real. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
