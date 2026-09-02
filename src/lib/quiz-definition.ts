@@ -45,12 +45,12 @@ function parseDefinition(value: unknown): QuizDefinition | null {
     ) {
       return null;
     }
-    /* `requires` is deliberately NOT checked. It used to be: the client evaluated the
-       unlock, so a spelling it could not read was a question nobody could reach, and
-       refusing the definition here turned that into a retry on the first screen rather
-       than a silently shortened quiz. The client no longer reads it — every question
-       is asked — so that check now only has the power to blank the whole quiz over a
-       field it ignores. */
+    /* `requires` is deliberately NOT checked, though the client does read it again
+       (see `applies`). Checking it here would mean refusing the WHOLE definition —
+       blanking the quiz for everyone — because of one question's gate, and a v4
+       spelling neither side had seen would take the funnel down rather than degrade.
+       `applies` holds a gate it cannot satisfy SHUT, so an unreadable one costs the
+       conditional question, not the quiz. */
   }
 
   return {

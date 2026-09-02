@@ -82,7 +82,7 @@ export function QuizFlow({ signedIn }: { signedIn: boolean }) {
   const answers =
     stored.quizVersion === definition.quiz_version ? stored.answers : {};
 
-  const asked = askedQuestions(definition);
+  const asked = askedQuestions(definition, answers);
 
   /* A definition with nothing to ask is not a state this screen can render its way
      out of, and it should be impossible — but `asked[step - 1]` would be undefined
@@ -97,10 +97,11 @@ export function QuizFlow({ signedIn }: { signedIn: boolean }) {
     );
   }
 
-  /* 1-based in the URL because it's also what the "(1/6)" label counts. Still clamped
-     even though the list is a fixed length now: `?q=` is in the URL, so a hand-typed
-     or stale-bookmarked step out of range would otherwise index past the end and
-     every line below dereferences the result. */
+  /* 1-based in the URL because it's also what the "(1/6)" label counts. The clamp
+     carries real weight again now the gate is back: the list SHRINKS when someone
+     steps back and changes `prior_misuse` to the answer that shuts question six, and
+     `?q=6` is still in the URL. Without this it would index past the end, and every
+     line below dereferences the result. */
   const step = Math.min(
     Math.max(Number(params.get("q")) || 1, 1),
     asked.length,
@@ -139,13 +140,17 @@ export function QuizFlow({ signedIn }: { signedIn: boolean }) {
       toggleAnswer(question.key, option, question.options);
       return;
     }
-    /* The count no longer moves with the answer — every question in the definition
-       is asked — so this advances against `asked.length` and `saveAnswer`'s return
-       value goes unused. The write still has to happen before the navigation: the
-       next screen renders from the store, and routing first would paint it without
-       the answer that was just picked. */
-    saveAnswer(question.key, option);
-    if (step < asked.length) go(step + 1);
+    /* Counted against the list THIS answer produces, not the one on screen when it
+       was tapped. `asked` is a render-time value, so inside this handler it is still
+       the previous answers' copy — and answering `prior_misuse` with a trigger is
+       exactly the tap that grows it from 5 to 6. Reading `asked.length` here would
+       finish the quiz one question early, on the very question that opens the sixth.
+
+       The write still has to happen before the navigation: the next screen renders
+       from the store, and routing first would paint it without the answer just
+       picked. `saveAnswer` returns the new state, which is that written answer. */
+    const next = saveAnswer(question.key, option);
+    if (step < askedQuestions(definition, next.answers).length) go(step + 1);
     else finish();
   }
 

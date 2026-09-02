@@ -26,13 +26,14 @@ export type QuizQuestion = {
    *  the live definition only sets it on `platforms`, and only to false. */
   required?: boolean;
   /**
-   * The definition's conditional unlock — sent by the server, IGNORED by this client.
+   * The definition's conditional unlock, in either spelling the server serves:
    *
-   * The quiz is asked as one fixed sequence now: every question the definition lists
-   * is rendered, in the order it lists them, whatever else has been answered. The
-   * live definition still carries this on `discovery_method`, so it stays on the type
-   * — a shape that omitted it would make `parseDefinition` look like it had checked a
-   * field it never saw — but nothing here reads it. See `askedQuestions`.
+   *   v1  { key: 'pastExploitation', value: 'Yes' }                 one trigger
+   *   v3  { key: 'prior_misuse', values: ['Once or twice', ...] }   several
+   *
+   * Both value keys are optional and either may be the one present, which is the
+   * whole of the defect this shape has caused twice. Read it through `applies`,
+   * never directly — see the note there.
    */
   requires?: { key: string; value?: string; values?: readonly string[] };
 };
@@ -50,21 +51,55 @@ const MAX_VALUE_LENGTH = 200;
 const MAX_SELECTIONS = 50;
 
 /**
- * The questions being asked: all of them, in the order the definition lists them.
+ * Does this question apply, given the answers so far?
  *
- * This used to filter on `requires`, so a question joined the sequence only once
- * another answer unlocked it. The quiz is no longer asked that way — the sequence is
- * fixed, and `discovery_method` is question 6 of 6 for everyone rather than a question
- * only the visitors who reported prior misuse ever reach.
+ * The server's own predicate, and the ONLY place `requires` is read. Both spellings
+ * are honoured — plural first, then the v1 singular — because the history of getting
+ * this wrong runs in both directions and each way shipped:
+ *
+ *   Reading only `value` found `undefined` on every v3 gate, so `discovery_method`
+ *   was unreachable by any answer — a six-question quiz that silently asked five.
+ *
+ *   Answering that by dropping the gate entirely asked "How did you find out about
+ *   the abuse?" of visitors who had just answered "No known incidents", and sent that
+ *   context on submissions where the gate was shut.
+ *
+ * One copy, called from one place. Two that disagreed with the server is how the
+ * original defect shipped unnoticed.
+ */
+export function applies(question: QuizQuestion, answers: QuizAnswers): boolean {
+  const gate = question.requires;
+  if (!gate) return true;
+
+  /* An `accepted` that comes out empty means the gate names no trigger at all, and
+     nothing can satisfy it — the question stays shut rather than falling open. */
+  const accepted = gate.values ?? (gate.value ? [gate.value] : []);
+  const trigger = answers[gate.key];
+
+  if (typeof trigger === "string") return accepted.includes(trigger);
+  /* A multi-select gate opens on any one of its selections. */
+  if (Array.isArray(trigger)) return trigger.some((v) => accepted.includes(v));
+  /* Unanswered: shut, not open. */
+  return false;
+}
+
+/**
+ * The questions being asked, in the order the definition lists them.
+ *
+ * Filtered by the gate, never sorted — the served order is the contract. The length
+ * MOVES with the answers: it is 5 until `prior_misuse` is answered with a trigger and
+ * 6 after, so nothing may cache it across an answer.
  *
  * Still a function rather than `definition.questions` inlined at the call sites, and
  * the reason is the step count. Three places count these — the `(3/6)` label, "is this
  * the last question", and whether stored answers cover the quiz — and they have to
- * agree with each other and with what `/api/quiz` validates. One definition of "the
- * questions" is what keeps them agreeing, and one place to change if unlocks return.
+ * agree with each other and with what `/api/quiz` validates.
  */
-export function askedQuestions(definition: QuizDefinition): QuizQuestion[] {
-  return [...definition.questions];
+export function askedQuestions(
+  definition: QuizDefinition,
+  answers: QuizAnswers,
+): QuizQuestion[] {
+  return definition.questions.filter((q) => applies(q, answers));
 }
 
 /** Questions still unanswered — drives the Continue button and the server check. */
@@ -72,7 +107,7 @@ export function missingAnswers(
   definition: QuizDefinition,
   answers: QuizAnswers,
 ): string[] {
-  return askedQuestions(definition)
+  return askedQuestions(definition, answers)
     .filter((q) => {
       /* `required: false` is the server saying this one may be skipped, and the
          live `platforms` question carries it. Treating every asked question as
@@ -140,12 +175,20 @@ export function validateAnswers(
     answers[question.key] = given;
   }
 
-  /* There is no second pass dropping answers here any more. It existed for closed
-     conditionals — switching an earlier answer could hide a question already answered,
-     and its answer outlived the question in sessionStorage — and with every question
-     always asked, nothing can go stale that way. The loop above is the only filter
-     left, and it builds `answers` from the definition's own keys, so a key the server
-     does not serve cannot reach the write regardless. */
+  /* Second pass: drop answers to questions the gate has since SHUT.
+     Going back and changing `prior_misuse` from "Repeated pattern" to "No known
+     incidents" hides `discovery_method`, but its answer outlives the question in
+     sessionStorage — and sending it would be answering a question that was not
+     asked. Evaluated against the validated set above, so the gating answer is the
+     one the API is about to be given.
+
+     The loop above already builds `answers` from the definition's own keys, so a
+     key the server does not serve cannot reach the write regardless of this. */
+  const askedKeys = new Set(askedQuestions(definition, answers).map((q) => q.key));
+  for (const key of Object.keys(answers)) {
+    if (!askedKeys.has(key)) delete answers[key];
+  }
+
   const missing = missingAnswers(definition, answers);
   if (missing.length > 0) {
     return { ok: false, error: `unanswered: ${missing.join(", ")}` };
