@@ -32,16 +32,31 @@ export type InsightRow = {
 export function InsightCard({
   heading,
   rows,
-  emphasis = "title",
+  variant = "factors",
 }: {
   heading: string;
   rows: readonly InsightRow[];
-  /** "title" sets row titles at 20px; "body" at 16px bold. Both 15px below `sm`. */
-  emphasis?: "title" | "body";
+  /**
+   * Which of the two cards this is. It used to switch the row titles as well — a
+   * factor's title is a noun ("Age") and a recommendation's is a whole instruction,
+   * so the latter was set smaller — but the desktop export gives both the same 20px
+   * SemiBold, so the rows are now one treatment and this selects only the heading's
+   * tracking and shade. See the note on the heading.
+   */
+  variant?: "factors" | "recommendations";
 }) {
   return (
     <section className="rounded-2xl bg-[#F4F2FA] px-5 pt-8 pb-8 sm:rounded-3xl sm:bg-gradient-to-b sm:from-[#F4F2FA] sm:via-[#F4F2FA] sm:via-95% sm:to-transparent sm:px-[92px] sm:pt-11 sm:pb-12">
-      <h2 className="text-[17px] leading-6 font-bold text-ink sm:text-2xl sm:leading-8">
+      {/* The two cards' headings are the same size, weight and leading, and differ
+          in the desktop export by a hair of tracking and an imperceptible shade —
+          -1.2px and #212121 on "Immediate Recommendations" against 0 and #1A1C1D on
+          the risk factors. Both are reproduced rather than averaged, but see the
+          note on `emphasis`: this is the likelier of the two to be drift. */}
+      <h2
+        className={`text-[17px] leading-6 font-bold text-ink-report sm:text-2xl sm:leading-[48px] ${
+          variant === "factors" ? "sm:text-ink-card" : "sm:tracking-[-1.2px]"
+        }`}
+      >
         {heading}
       </h2>
 
@@ -55,13 +70,14 @@ export function InsightCard({
               <Icon />
             </span>
             <div className="sm:pt-1">
-              <h3
-                className={
-                  emphasis === "title"
-                    ? "text-[15px] leading-5 font-bold text-ink sm:text-xl sm:leading-7 sm:font-semibold"
-                    : "text-[15px] leading-5 font-bold text-ink sm:text-base sm:leading-6"
-                }
-              >
+              {/* One treatment for both cards. The desktop export sets "Keep your
+                  social media private" at the same 20px/28px SemiBold #1A1C1D as the
+                  risk factors' own titles, and only "Sign up for YouTube's free
+                  likeness detection service" — the longest title on the screen — at
+                  15px on that same 28px leading. A 1.87 line-height ratio against
+                  1.4 everywhere else is what a title shrunk to fit looks like, not a
+                  second style, so 20px is taken as the rule. */}
+              <h3 className="text-[15px] leading-5 font-bold text-ink sm:text-xl sm:leading-7 sm:font-semibold sm:text-ink-card">
                 {title}
               </h3>
               <p className="mt-1 max-w-[600px] text-[14px] leading-[19px] text-ink-body sm:mt-1.5 sm:text-base sm:leading-6">

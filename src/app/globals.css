@@ -36,6 +36,16 @@
    * that explains the score. A notch lighter than `ink`, which is the funnel's own
    * black, and the LHS export sets all three of those in it rather than in `ink`. */
   --color-ink-report: #212121;
+  /* The warm card's copy — a slate rather than a neutral, and the one ink on this
+   * screen that is the same value at both sizes. */
+  --color-ink-warm: #1f2937;
+  /* The lavender cards' headings and row titles, desktop. */
+  --color-ink-card: #1a1c1d;
+  /* The deepest of them — the second download prompt's copy. */
+  --color-ink-deep: #0c0c0e;
+  /* `ink-body` one step lighter, same warm grey-violet family — the feature cards'
+   * copy under "Benefits of the app". */
+  --color-ink-body-soft: #5c5966;
   --color-ink-inverse: #ffffff;
 
   /* Lines */

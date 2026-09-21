@@ -116,7 +116,7 @@ export function ScoreResult({
       <SiteHeader />
 
       <div className="mx-auto w-full max-w-[958px] px-5 pt-[65px] sm:px-6">
-        <p className="mt-[29px] text-center text-[16px] leading-[40px] font-bold text-ink-report sm:mt-12 sm:text-ink sm:text-left sm:text-2xl sm:leading-8 lg:mt-[85px]">
+        <p className="mt-[29px] text-center text-[16px] leading-[40px] font-bold text-ink-report sm:mt-12 sm:text-left sm:text-2xl sm:tracking-[-1px] lg:mt-[79px]">
           Your Likeness Health Report
           <sup className="align-[4px] text-[0.42em] lg:align-[6px]">SM</sup>
         </p>
@@ -131,7 +131,7 @@ export function ScoreResult({
         <section className="mt-[15px] flex flex-col sm:mt-10 lg:mt-[37px] lg:grid lg:grid-cols-[1fr_333px] lg:items-start lg:gap-x-10">
           {/* Capped at the export's own measure so it breaks after "risk of",
               not mid-phrase — the line the accent word lands on is the point. */}
-          <h1 className="order-1 text-center text-[28px] leading-[1.2] font-bold tracking-[-0.5px] text-ink-report sm:text-left sm:text-ink sm:text-[32px] sm:leading-[46px] sm:tracking-normal lg:col-start-1 lg:row-start-1 lg:max-w-[440px] lg:pt-2 lg:text-[40px] lg:leading-[60px]">
+          <h1 className="order-1 text-center text-[28px] leading-[1.2] font-bold tracking-[-0.5px] text-ink-report sm:text-left sm:text-[32px] sm:leading-[1.5] lg:col-start-1 lg:row-start-1 lg:max-w-[440px] lg:pt-2 lg:text-[40px] lg:leading-[60px]">
             {record.firstName}, your risk of likeness abuse is{" "}
             {/* One weight heavier than the sentence it ends, not just a colour —
                 the export sets the risk word in ExtraBold. The exclamation mark is
@@ -158,13 +158,14 @@ export function ScoreResult({
           </div>
 
           <div className="order-3 mt-[41px] lg:col-start-1 lg:row-start-2 lg:mt-5">
-            <p className="text-center text-[14px] leading-[1.5] text-ink-report sm:text-left sm:text-base sm:leading-[23px] sm:text-ink-soft lg:max-w-[520px]">
+            <p className="text-center text-[14px] leading-[1.5] text-ink-report sm:text-left sm:text-[15px] lg:max-w-[520px]">
               A Likeness Health Score of{" "}
-              {/* The two figures are marked up as the emphasis they are, but the
-                  phone export sets this sentence — risk word and numbers alike — at
-                  a flat 400, so the weight only lands from `sm` up. On a 403px
-                  measure a bolded number mid-sentence reads as a second headline
-                  under the one already above it. */}
+              {/* The two figures are marked up as the emphasis they are, and the
+                  weight follows the export on each side: the desktop one sets these
+                  spans at 700 against the sentence's 400, and the phone one sets the
+                  whole sentence — risk word and figures alike — flat at 400. On a
+                  403px measure a bolded number mid-sentence reads as a second
+                  headline under the one already above it. */}
               <strong className="font-normal sm:font-bold">{score.live}</strong>{" "}
               indicates that you are at a {label} risk for likeness theft and misuse
               online.{" "}
@@ -193,7 +194,7 @@ export function ScoreResult({
           handoff={handoff}
           className={`mt-7 rounded-3xl px-5 pt-5 pb-[25px] sm:gap-10 sm:px-8 sm:py-10 lg:mt-[62px] lg:gap-10 ${WARM_CARD}`}
         >
-          <p className="text-[16px] leading-6 font-semibold text-[#1F2937] sm:max-w-[510px] sm:text-2xl sm:leading-9 sm:font-medium sm:text-ink">
+          <p className="text-[16px] leading-6 font-semibold text-ink-warm sm:max-w-[510px] sm:text-2xl sm:leading-9">
             Download the ImageShield app for our full set of recommendations on how
             you can improve your score and keep your likeness safe online.
           </p>
@@ -207,7 +208,7 @@ export function ScoreResult({
           <InsightCard
             heading="Immediate Recommendations"
             rows={recommendations}
-            emphasis="body"
+            variant="recommendations"
           />
         </div>
 
@@ -216,7 +217,7 @@ export function ScoreResult({
           compact
           className="mt-10 sm:gap-10 lg:mt-[59px] lg:gap-[65px]"
         >
-          <p className="text-[17px] leading-[22px] font-semibold text-ink sm:max-w-[610px] sm:text-2xl sm:leading-9 sm:font-medium">
+          <p className="text-[17px] leading-[22px] font-semibold text-ink-deep sm:max-w-[610px] sm:text-2xl sm:leading-9 sm:tracking-[-0.04em]">
             To see your full set of recommendations and your complete Likeness Health
             Report
             <sup className="align-[5px] text-[0.4em] sm:align-[7px]">SM</sup>,

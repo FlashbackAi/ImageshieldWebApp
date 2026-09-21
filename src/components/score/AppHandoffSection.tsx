@@ -113,7 +113,7 @@ export function AppHandoffSection() {
           heading a hundred pixels off the top of the mockup it is meant to align
           with. */}
       <div className="flex flex-col lg:grid lg:grid-cols-[438px_1fr] lg:grid-rows-[auto_1fr] lg:gap-x-[34px]">
-        <h2 className="order-1 text-[17px] leading-6 font-bold text-ink lg:col-start-1 lg:row-start-1 lg:text-2xl lg:leading-8">
+        <h2 className="order-1 text-[17px] leading-6 font-bold text-ink-deep sm:text-2xl sm:leading-[1.07] sm:tracking-[-0.04em] lg:col-start-1 lg:row-start-1">
           Benefits of the app
         </h2>
 
@@ -176,10 +176,10 @@ export function AppHandoffSection() {
                       on ? "bg-[#EAEAF2]" : "bg-surface hover:bg-[#ECECF3]"
                     }`}
                   >
-                    <span className="block text-[15px] leading-5 font-bold text-ink">
+                    <span className="block text-[15px] leading-5 font-bold text-ink-deep sm:leading-none sm:tracking-[-0.018em]">
                       {title}
                     </span>
-                    <span className="mt-1 block text-[15px] leading-[21px] text-ink-muted lg:mt-1 lg:text-[13px] lg:leading-[19px]">
+                    <span className="mt-1 block text-[15px] leading-[21px] text-ink-body-soft sm:text-[13px] sm:leading-[1.55]">
                       {body}
                     </span>
                   </button>
