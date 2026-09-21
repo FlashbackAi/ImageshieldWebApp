@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ShimmerImage } from "@/components/ShimmerImage";
 import { STORE_LINKS } from "@/lib/site-nav";
 import { HeroNav } from "./HeroNav";
 import { Star } from "./icons";
@@ -41,7 +42,13 @@ export function HeroSection() {
   return (
     <section className="relative isolate overflow-hidden bg-night xl:min-h-[848px]">
       <div className="absolute inset-0 xl:top-auto xl:right-[max(-332px,-23.06%)] xl:bottom-0 xl:left-auto xl:h-[110.97%] xl:w-[min(110.69%,1594px)]">
-        <Image
+        {/* The heaviest asset on the site by a factor of four, and the first
+            thing above the fold — so it is the one placeholder that matters
+            most. `night`, because it fills a box on a black canvas: the light
+            skeleton would be a viewport-wide white panel where the photograph
+            goes, which is worse than the black it replaces. */}
+        <ShimmerImage
+          night
           src="/media/hero-protects.png"
           alt="A woman looking at her phone, her face ringed by a glowing shield, with anonymous hooded figures fading into the dark behind her."
           fill
@@ -147,12 +154,14 @@ export function HeroSection() {
                 rel="noreferrer"
                 className="block overflow-hidden rounded-[7px] border border-ink-onnight/65 transition-opacity hover:opacity-80"
               >
-                <Image
+                <ShimmerImage
+                  night
                   src="/media/badge-app-store.png"
                   alt="Download on the App Store"
                   width={1692}
                   height={546}
-                  className="h-[42px] w-[127px] object-cover"
+                  frameClassName="h-[42px] w-[127px]"
+                  className="size-full object-cover"
                 />
               </a>
               <a
@@ -161,12 +170,14 @@ export function HeroSection() {
                 rel="noreferrer"
                 className="block overflow-hidden rounded-[7px] border border-ink-onnight/65 transition-opacity hover:opacity-80"
               >
-                <Image
+                <ShimmerImage
+                  night
                   src="/media/badge-google-play.png"
                   alt="Get it on Google Play"
                   width={640}
                   height={192}
-                  className="h-[38px] w-[127px] object-cover"
+                  frameClassName="h-[38px] w-[127px]"
+                  className="size-full object-cover"
                 />
               </a>
             </div>

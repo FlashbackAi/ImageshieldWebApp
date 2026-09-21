@@ -13,6 +13,7 @@ import {
 import { askedQuestions } from "@/lib/quiz";
 import { useQuizDefinition } from "@/lib/use-quiz-definition";
 import { QuizProgress } from "./QuizProgress";
+import { QuizSkeleton } from "./QuizSkeleton";
 
 /**
  * The questions come from `GET /v1/quiz`, read without a session.
@@ -47,11 +48,13 @@ export function QuizFlow({ signedIn }: { signedIn: boolean }) {
   }, [liveVersion]);
 
   if (status === "loading") {
-    /* Deliberately not a spinner. This is the funnel's first real screen and the
-       definition is usually cached by the time anyone reaches it, so a spinner would
-       mostly be a flash; the reserved height keeps the header from jumping when the
-       questions land. */
-    return <div className="min-h-[60vh]" aria-busy="true" />;
+    /* Deliberately not a spinner, and for the same reason it is not blank: this
+       screen has a shape, and the definition only ever supplies the words that go
+       in it. A spinner would throw that away and then hand the whole layout back
+       at once; the skeleton reserves it, so the questions land in boxes the eye
+       has already found. On a fast connection or a cached definition none of this
+       is seen at all — `useQuizDefinition` starts `ready` when the tab has it. */
+    return <QuizSkeleton />;
   }
 
   /* Failing HERE, on the first question, is the point. The alternative — rendering

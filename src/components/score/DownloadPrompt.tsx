@@ -1,5 +1,6 @@
-import Image from "next/image";
+import { ShimmerImage } from "@/components/ShimmerImage";
 import type { Handoff } from "@/lib/handoff";
+import { HandoffQr } from "./HandoffQr";
 
 /**
  * A line of copy, a QR code and the two store badges.
@@ -12,6 +13,8 @@ import type { Handoff } from "@/lib/handoff";
  * The QR comes from `/api/handoff/qr`, a route handler that builds it from the
  * session cookie. It is deliberately NOT `next/image`: the code is generated per
  * visitor and must never be cached, which is exactly what `next/image` would do.
+ * That, and the wait it implies, is why it has a component of its own — see
+ * `HandoffQr`.
  */
 export function DownloadPrompt({
   handoff,
@@ -79,16 +82,7 @@ export function DownloadPrompt({
           compact ? "mx-auto gap-5 sm:mx-0 sm:gap-3" : "gap-7 sm:gap-4"
         }`}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element -- see the note above. */}
-        <img
-          src="/api/handoff/qr"
-          alt="QR code to open ImageShield"
-          width={120}
-          height={120}
-          /* `overflow-hidden` so a QR that fails to load shows a broken-image box
-             rather than spilling its alt text across the badges beside it. */
-          className={`shrink-0 overflow-hidden rounded-2xl bg-canvas p-3 sm:p-2.5 ${qr}`}
-        />
+        <HandoffQr className={qr} padding="p-3 sm:p-2.5" />
 
         <div className="flex flex-col gap-3">
           <a
@@ -97,12 +91,16 @@ export function DownloadPrompt({
             rel="noreferrer"
             className="transition-opacity hover:opacity-80"
           >
-            <Image
+            {/* The badge's own box is the frame, so the placeholder holds the
+                widths worked out above rather than collapsing the row while
+                two PNGs come down a slow line. */}
+            <ShimmerImage
               src="/media/badge-google-play.png"
               alt="Get it on Google Play"
               width={640}
               height={192}
-              className={`h-auto ${play}`}
+              frameClassName={`rounded-[7px] ${play}`}
+              className="h-auto w-full"
             />
           </a>
           <a
@@ -111,12 +109,13 @@ export function DownloadPrompt({
             rel="noreferrer"
             className="transition-opacity hover:opacity-80"
           >
-            <Image
+            <ShimmerImage
               src="/media/badge-app-store.png"
               alt="Download on the App Store"
               width={1692}
               height={546}
-              className={`h-auto ${appStore}`}
+              frameClassName={`rounded-[7px] ${appStore}`}
+              className="h-auto w-full"
             />
           </a>
         </div>

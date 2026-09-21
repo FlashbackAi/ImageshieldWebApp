@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { ShimmerImage } from "@/components/ShimmerImage";
 
 const STEPS = [
   {
@@ -65,12 +65,18 @@ export function HowItWorks() {
         {STEPS.map((step, i) => (
           <li key={step.number} className="flex flex-col items-center">
             <div className="relative">
-              <div className="h-[320px] w-[192px] overflow-hidden rounded-2xl border-4 border-navbar/30">
-                <Image
+              {/* The frame is already the right size and outline, so the
+                  placeholder fills it rather than replacing it — three empty
+                  phone outlines on a slow line still read as three phones.
+                  `relative` on the outer box is what the frame inside it
+                  measures against. */}
+              <div className="relative h-[320px] w-[192px] overflow-hidden rounded-2xl border-4 border-navbar/30">
+                <ShimmerImage
                   src={step.shot}
                   alt={step.alt}
                   width={552}
                   height={980}
+                  frameClassName="h-full w-full"
                   className="h-full w-full object-cover"
                 />
               </div>

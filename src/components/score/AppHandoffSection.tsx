@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { useId, useRef, useState } from "react";
+import { ShimmerImage } from "@/components/ShimmerImage";
 
 /**
  * "Benefits of the app" — the foot of the result screen.
@@ -124,15 +124,23 @@ export function AppHandoffSection() {
         <div className="order-2 mt-7 flex justify-center lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:justify-end">
           <div className="flex flex-col items-center">
             <div id={panelId} role="tabpanel" aria-labelledby={tabId(selected)}>
-              <Image
+              <ShimmerImage
                 // Keyed so a swap replaces the element rather than mutating its
                 // src, which would show the old screen until the new one decodes.
+                // It resets the shimmer along with it, which is the behaviour
+                // this tablist wants: picking a feature whose screen is not yet
+                // cached shows the placeholder rather than the previous
+                // feature's phone.
                 key={active.screen}
                 src={active.screen}
                 alt={active.screenAlt}
                 width={868}
                 height={1812}
-                className="w-[242px] sm:w-[280px] lg:w-[320px]"
+                // The mockup's own drawn widths, moved onto the frame so the
+                // placeholder is a phone-shaped block rather than a band across
+                // the column. Its height follows from the 868×1812 plate.
+                frameClassName="w-[242px] rounded-[28px] sm:w-[280px] lg:w-[320px]"
+                className="w-full"
               />
             </div>
             <p className="mt-4 text-[15px] font-bold text-ink sm:text-[13px]">

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { FaqSections } from "@/components/faq/FaqSections";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import { SiteHeader } from "@/components/landing/SiteHeader";
+import { ShimmerImage } from "@/components/ShimmerImage";
 import { FAQ_BREADCRUMB_JSON_LD, FAQ_JSON_LD, SITE_URL } from "@/lib/faq";
 import { STORE_LINKS } from "@/lib/site-nav";
 
@@ -86,12 +86,16 @@ export default function FaqPage() {
                 rel="noopener noreferrer"
                 className="transition-transform hover:scale-105"
               >
-                <Image
+                {/* Pinned by HEIGHT here, unlike every other badge on the
+                    site — so the frame is too, and its width is left to the
+                    plate's own ratio. */}
+                <ShimmerImage
                   src="/media/badge-app-store.png"
                   alt="Download on the App Store"
                   width={1692}
                   height={546}
-                  className="mx-auto h-[3em] w-auto"
+                  frameClassName="h-[3em] rounded-[7px]"
+                  className="h-full w-auto"
                 />
               </a>
               <a
@@ -100,12 +104,13 @@ export default function FaqPage() {
                 rel="noopener noreferrer"
                 className="transition-transform hover:scale-105"
               >
-                <Image
+                <ShimmerImage
                   src="/media/badge-google-play.png"
                   alt="Get it on Google Play"
                   width={640}
                   height={192}
-                  className="mx-auto h-[3em] w-auto"
+                  frameClassName="h-[3em] rounded-[7px]"
+                  className="h-full w-auto"
                 />
               </a>
             </div>

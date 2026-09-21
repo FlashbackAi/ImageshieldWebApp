@@ -335,11 +335,24 @@ export function OtpForm() {
         >
           Back
         </button>
+        {/*
+         * The button is disabled for two unrelated reasons and they have to
+         * look different: fewer than six digits typed is "not yet", which is
+         * the dim, and a code being checked is "working", which is the sweep.
+         * Sharing one dim between them meant a verify on a slow connection was
+         * indistinguishable from a button that had never been armed — and this
+         * is the step where the visitor is most likely to think they mistyped
+         * and start over. The dim is dropped while `busy` so the sweep runs on
+         * the full purple rather than on a washed-out ghost of it.
+         */}
         <button
           type="button"
           onClick={() => verify(code)}
           disabled={code.length < LENGTH || busy}
-          className="flex h-14 items-center justify-center rounded-full bg-brand text-base font-semibold text-ink-inverse transition-colors hover:bg-cta disabled:opacity-40 sm:w-[317px]"
+          aria-busy={busy}
+          className={`flex h-14 items-center justify-center rounded-full bg-brand text-base font-semibold text-ink-inverse transition-colors hover:bg-cta sm:w-[317px] ${
+            busy ? "shimmer" : "disabled:opacity-40"
+          }`}
         >
           {busy ? "Verifying…" : "Review my score"}
         </button>

@@ -133,6 +133,26 @@
   --shadow-legacy: 0 4px 24px -4px rgb(0 128 255 / 0.15);
   --shadow-legacy-hover: 0 8px 32px -4px rgb(0 128 255 / 0.25);
 
+  /*
+   * Skeletons — the blocks standing in for content that hasn't arrived, and the
+   * band of light that travels across them. See the `.skeleton` rules below.
+   *
+   * The light pair is `surface` pulled a step toward the brand violet rather
+   * than the neutral grey it is. Over `canvas-tint` a neutral block reads as a
+   * disabled control; the violet cast is what makes it read as this product's
+   * content on its way. The sheen is lighter than `canvas`, so the sweep still
+   * registers on the white result screen and not only on the tinted funnel.
+   */
+  --color-skeleton: #ecebf3;
+  --color-skeleton-sheen: #f9f8ff;
+  /*
+   * …and the pair for the landing page's black canvas, where those two would be
+   * bright holes punched in the hero. Sheen and ground are both near-black: the
+   * contrast between them carries the sweep, not their brightness.
+   */
+  --color-skeleton-night: #17171c;
+  --color-skeleton-night-sheen: #2c2836;
+
   /* Type — Plus Jakarta Sans, same face as the app */
   --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif;
 
@@ -199,6 +219,98 @@
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Skeletons
+ *
+ * One keyframe, shared by every placeholder on the site: a band of light
+ * travelling left to right across the block it sits in.
+ *
+ * `translateX` rather than a sliding `background-position`, which is the other
+ * common way to write this. A transform is composited and a background is
+ * repainted every frame — and these only ever appear on the slow connections
+ * that make them necessary, on the devices least able to afford a repaint. The
+ * hero placeholder is a full viewport of gradient; animating its paint is
+ * exactly the wrong thing to spend that budget on.
+ *
+ * Three classes rather than one, because the ground underneath differs:
+ *
+ *   .skeleton        a block standing in for content, on a light page
+ *   .skeleton-night  the same, on the landing page's black canvas
+ *   .shimmer         the sweep ALONE, over whatever the element already is —
+ *                    a submit button that keeps its brand purple while it waits
+ *
+ * Each sets `--shimmer-sheen`, which is the only thing the shared `::after`
+ * below reads, so a new ground is one declaration rather than a fourth rule.
+ * ------------------------------------------------------------------------ */
+@keyframes shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@layer components {
+  .skeleton,
+  .skeleton-night,
+  .shimmer {
+    position: relative;
+    /* The sweep starts and ends outside the box. Without this it is visible
+       crossing the page either side of the block it belongs to. */
+    overflow: hidden;
+  }
+
+  .skeleton {
+    background-color: var(--color-skeleton);
+    --shimmer-sheen: var(--color-skeleton-sheen);
+  }
+
+  .skeleton-night {
+    background-color: var(--color-skeleton-night);
+    --shimmer-sheen: var(--color-skeleton-night-sheen);
+  }
+
+  /* No ground of its own — it lights whatever it is laid over. */
+  .shimmer {
+    --shimmer-sheen: rgb(255 255 255 / 0.22);
+  }
+
+  .skeleton::after,
+  .skeleton-night::after,
+  .shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--shimmer-sheen) 50%,
+      transparent 100%
+    );
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+
+  /*
+   * The base block already says "not here yet" standing still, so the motion is
+   * simply dropped rather than shortened.
+   *
+   * It needs saying explicitly: the blanket rule in the base layer sets every
+   * animation to one 0.01ms iteration, which does not stop this one — it runs it
+   * to the end instantly, and with no fill mode the sheen then springs back to
+   * its resting `translateX(0)`. That leaves a bright stripe parked across the
+   * middle of every placeholder on the page, which is worse than no shimmer and
+   * worse than the plain block.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton::after,
+    .skeleton-night::after,
+    .shimmer::after {
+      display: none;
     }
   }
 }

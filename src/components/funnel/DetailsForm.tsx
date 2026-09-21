@@ -322,10 +322,22 @@ export function DetailsForm() {
         >
           Back
         </button>
+        {/*
+         * Waiting and unavailable are two different things, and the button has
+         * to be able to say which. `disabled` alone can only dim, so a slow
+         * network looked exactly like a form that wasn't ready — on the one
+         * screen where the request goes out over SMS and can genuinely take a
+         * few seconds. So the dim is kept for "can't press this yet" and the
+         * sweep carries "pressed, working": full brand purple, with a band of
+         * light crossing it for as long as the code is in flight.
+         */}
         <button
           type="submit"
           disabled={sending}
-          className="flex h-14 items-center justify-center rounded-full bg-brand text-base font-semibold text-ink-inverse transition-colors hover:bg-cta disabled:opacity-40 sm:w-[317px]"
+          aria-busy={sending}
+          className={`flex h-14 items-center justify-center rounded-full bg-brand text-base font-semibold text-ink-inverse transition-colors hover:bg-cta sm:w-[317px] ${
+            sending ? "shimmer" : "disabled:opacity-40"
+          }`}
         >
           {sending ? "Sending code…" : "Review my score"}
         </button>
