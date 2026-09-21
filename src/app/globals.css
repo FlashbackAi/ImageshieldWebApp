@@ -32,6 +32,10 @@
   --color-ink-placeholder: #999999;
   /* The result screen's body copy: a warmed grey-violet, not a neutral one. */
   --color-ink-body: #494454;
+  /* …and the near-black above it — the report label, the headline and the sentence
+   * that explains the score. A notch lighter than `ink`, which is the funnel's own
+   * black, and the LHS export sets all three of those in it rather than in `ink`. */
+  --color-ink-report: #212121;
   --color-ink-inverse: #ffffff;
 
   /* Lines */

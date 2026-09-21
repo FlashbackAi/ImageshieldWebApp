@@ -24,6 +24,13 @@ import { useId, useRef, useState } from "react";
  *
  * Not `<DownloadSection>` from the landing page — that one is the black, centred
  * store-badge footer.
+ *
+ * The phone export stacks the three parts heading / mockup / cards rather than
+ * putting the mockup in a column beside the cards, and that order is the reason the
+ * markup below is three grid items rather than two columns: a phone reader meets
+ * the screen the cards describe BEFORE the cards, so the first card has something to
+ * change. Below `lg` the section is a column and `order` runs it; at `lg` the
+ * explicit row/column placement takes over and restores the export's two columns.
  */
 
 const FEATURES: ReadonlyArray<{
@@ -96,14 +103,45 @@ export function AppHandoffSection() {
   return (
     <section
       id="download"
-      className="mx-auto w-full max-w-[958px] px-6 pt-16 pb-24 lg:pt-[52px] lg:pb-[120px]"
+      className="mx-auto w-full max-w-[958px] px-5 pt-12 pb-24 sm:px-6 sm:pt-16 lg:pt-[52px] lg:pb-[120px]"
     >
       {/* The mockup's top edge sits level with the heading rather than with the
-          cards, so the heading is inside the left column instead of above the grid. */}
-      <div className="grid gap-12 lg:grid-cols-[438px_1fr] lg:gap-[34px]">
-        <div>
-          <h2 className="text-2xl font-bold text-ink">Benefits of the app</h2>
+          cards, so at `lg` the heading takes the left column's first row and the
+          mockup spans both. The rows are pinned `auto` then `1fr` because of that
+          span: the mockup is half again as tall as the cards beside it, and a grid
+          left to size its own rows hands that surplus to row one, pushing the
+          heading a hundred pixels off the top of the mockup it is meant to align
+          with. */}
+      <div className="flex flex-col lg:grid lg:grid-cols-[438px_1fr] lg:grid-rows-[auto_1fr] lg:gap-x-[34px]">
+        <h2 className="order-1 text-[17px] leading-6 font-bold text-ink lg:col-start-1 lg:row-start-1 lg:text-2xl lg:leading-8">
+          Benefits of the app
+        </h2>
 
+        {/* Right-aligned rather than centred in its column at `lg`: the export runs
+            the mockup's right edge to the content column's, and the caption centres
+            under the phone rather than under the column. On a phone it is simply
+            centred, between the heading and the cards. */}
+        <div className="order-2 mt-7 flex justify-center lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:justify-end">
+          <div className="flex flex-col items-center">
+            <div id={panelId} role="tabpanel" aria-labelledby={tabId(selected)}>
+              <Image
+                // Keyed so a swap replaces the element rather than mutating its
+                // src, which would show the old screen until the new one decodes.
+                key={active.screen}
+                src={active.screen}
+                alt={active.screenAlt}
+                width={868}
+                height={1812}
+                className="w-[242px] sm:w-[280px] lg:w-[320px]"
+              />
+            </div>
+            <p className="mt-4 text-[15px] font-bold text-ink sm:text-[13px]">
+              Sample report
+            </p>
+          </div>
+        </div>
+
+        <div className="order-3 lg:col-start-1 lg:row-start-2">
           {/*
            * The export draws four plain cards with the first one a shade darker.
            * That shade is exactly what a selected tab needs, so the list is still a
@@ -115,7 +153,7 @@ export function AppHandoffSection() {
             role="tablist"
             aria-orientation="vertical"
             aria-label="App features"
-            className="mt-8 flex flex-col gap-[25px]"
+            className="mt-8 flex flex-col gap-5 lg:gap-[25px]"
           >
             {FEATURES.map(({ title, body }, i) => {
               const on = i === selected;
@@ -134,14 +172,14 @@ export function AppHandoffSection() {
                     tabIndex={on ? 0 : -1}
                     onClick={() => setSelected(i)}
                     onKeyDown={onKeyDown}
-                    className={`block w-full cursor-pointer rounded-2xl px-[22px] py-[18px] text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta ${
-                      on ? "bg-[#EAEAF2]" : "bg-[#F2F2F7] hover:bg-[#ECECF3]"
+                    className={`block w-full cursor-pointer rounded-2xl px-[22px] py-5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta lg:py-[18px] ${
+                      on ? "bg-[#EAEAF2]" : "bg-surface hover:bg-[#ECECF3]"
                     }`}
                   >
                     <span className="block text-[15px] leading-5 font-bold text-ink">
                       {title}
                     </span>
-                    <span className="mt-1 block text-[13px] leading-[19px] text-ink-muted">
+                    <span className="mt-1 block text-[15px] leading-[21px] text-ink-muted lg:mt-1 lg:text-[13px] lg:leading-[19px]">
                       {body}
                     </span>
                   </button>
@@ -149,27 +187,6 @@ export function AppHandoffSection() {
               );
             })}
           </ul>
-        </div>
-
-        {/* Right-aligned rather than centred in its column: the export runs the
-            mockup's right edge to the content column's, and the caption centres
-            under the phone rather than under the column. */}
-        <div className="flex justify-center lg:justify-end">
-          <div className="flex flex-col items-center">
-            <div id={panelId} role="tabpanel" aria-labelledby={tabId(selected)}>
-              <Image
-                // Keyed so a swap replaces the element rather than mutating its
-                // src, which would show the old screen until the new one decodes.
-                key={active.screen}
-                src={active.screen}
-                alt={active.screenAlt}
-                width={868}
-                height={1812}
-                className="w-[280px] lg:w-[320px]"
-              />
-            </div>
-            <p className="mt-4 text-[13px] font-bold text-ink">Sample report</p>
-          </div>
         </div>
       </div>
     </section>

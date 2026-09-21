@@ -39,6 +39,18 @@ const FACTOR_ICONS: Record<FactorIcon, (props: { className?: string }) => React.
 };
 
 /**
+ * The warm card's ground, on a phone.
+ *
+ * Two gradients, as the mobile export draws them: the desktop's horizontal cream
+ * wash with a vertical amber→red overlay laid over it. That overlay runs from the
+ * card's top edge to y=1151 on a card that ends at y=964, so only its first 61% is
+ * ever seen — the end stop here is that gradient sampled at 61%, not its own final
+ * stop, which would land a far redder card than the export shows.
+ */
+const WARM_CARD =
+  "bg-[linear-gradient(180deg,rgba(246,182,11,0.11)_0%,rgba(239,101,34,0.287)_100%),linear-gradient(90deg,#F7F3F0_0%,#EFE8E4_100%)] sm:bg-[linear-gradient(90deg,#F7F3F0_0%,#EFE8E4_100%)]";
+
+/**
  * The result screen, laid out from the LHS Results V1 export.
  *
  * Everything above the fold comes off the stored record; the two cards under it are
@@ -46,10 +58,18 @@ const FACTOR_ICONS: Record<FactorIcon, (props: { className?: string }) => React.
  * and what it means, then the one action that follows from it, then why the number is
  * what it is, then what to do about it, then the app.
  *
+ * The phone export reorders the top of that argument and nothing else. On a desktop
+ * the gauge sits BESIDE the headline, so the sentence under the headline is read
+ * before the eye reaches the arc; on a phone the gauge sits UNDER the headline, and
+ * the same sentence placed under the headline would separate the two. So the
+ * sentence moves below the gauge and its scale — the number is shown, then explained.
+ * `order` does that below `lg`; at `lg` the section becomes a two-column grid whose
+ * explicit placement ignores `order` and restores the export's own arrangement.
+ *
  * `prompts` maps a breakdown key to the question it was asked as, from the same quiz
  * definition the visitor answered. It is only a fallback: a factor the presentation
  * table recognises gets the written copy, and one it doesn't gets the real question
- * instead of a raw key like `content_type`.
+ * instead of a slug like `content_type`.
  *
  * `recommendations` is passed in rather than imported so that the day the API serves
  * them, the page changes and this screen does not. See `lib/recommendations.ts`.
@@ -88,36 +108,68 @@ export function ScoreResult({
   const cohort = 100 - score.live;
 
   return (
-    /* Inter, like the rest of the marketing site — the funnel's Plus Jakarta Sans
-       stops at the OTP screen. */
-    <main className="relative min-h-[100dvh] bg-canvas font-site">
+    /* Plus Jakarta Sans, not the marketing site's Inter. This screen is the last
+       one of the funnel rather than the first one of the site, and it is what a
+       lead sees immediately before the app — which is drawn in this face too. The
+       LHS Results V1 export is set in it, weight for weight. */
+    <main className="relative min-h-[100dvh] bg-canvas font-sans">
       <SiteHeader />
 
-      <div className="mx-auto w-full max-w-[958px] px-6 pt-[65px]">
-        <p className="mt-12 text-2xl font-bold text-ink lg:mt-[85px]">
+      <div className="mx-auto w-full max-w-[958px] px-5 pt-[65px] sm:px-6">
+        <p className="mt-[29px] text-center text-[16px] leading-[40px] font-bold text-ink-report sm:mt-12 sm:text-ink sm:text-left sm:text-2xl sm:leading-8 lg:mt-[85px]">
           Your Likeness Health Report
-          <sup className="align-[6px] text-[0.42em]">SM</sup>
+          <sup className="align-[4px] text-[0.42em] lg:align-[6px]">SM</sup>
         </p>
 
-        {/* The gauge sits beside the headline rather than over it, and holds its
-            drawn width instead of flexing — an arc that reflows with the column
-            drags its printed scale out of step with it. Below `lg` the two stack
-            and the gauge centres. */}
-        <section className="mt-10 flex flex-col items-center gap-12 lg:mt-[37px] lg:flex-row lg:items-start lg:justify-between lg:gap-10">
-          <div className="w-full lg:pt-2">
-            {/* Capped at the export's own measure so it breaks after "risk of",
-                not mid-phrase — the line the accent word lands on is the point. */}
-            <h1 className="max-w-[440px] text-[32px] leading-[46px] font-bold text-ink lg:text-[40px] lg:leading-[60px]">
-              {record.firstName}, your risk of likeness abuse is{" "}
-              <span className={RISK_WORD[level]}>{label}</span>
-            </h1>
+        {/* Below `lg` this is a column and `order` runs it; at `lg` it is a grid and
+            the explicit row/column placement takes over. The gauge holds its drawn
+            width in both — an arc that reflows with the column drags its printed
+            scale out of step with it. The phone's own treatments (centred copy, the
+            arc's caption, the smaller scale) end at `sm`, one breakpoint sooner than
+            the stacking does: they are answers to a 403px measure, not to a single
+            column, and a 700px tablet is a single column with room to spare. */}
+        <section className="mt-[15px] flex flex-col sm:mt-10 lg:mt-[37px] lg:grid lg:grid-cols-[1fr_333px] lg:items-start lg:gap-x-10">
+          {/* Capped at the export's own measure so it breaks after "risk of",
+              not mid-phrase — the line the accent word lands on is the point. */}
+          <h1 className="order-1 text-center text-[28px] leading-[1.2] font-bold tracking-[-0.5px] text-ink-report sm:text-left sm:text-ink sm:text-[32px] sm:leading-[46px] sm:tracking-normal lg:col-start-1 lg:row-start-1 lg:max-w-[440px] lg:pt-2 lg:text-[40px] lg:leading-[60px]">
+            {record.firstName}, your risk of likeness abuse is{" "}
+            {/* One weight heavier than the sentence it ends, not just a colour —
+                the export sets the risk word in ExtraBold. The exclamation mark is
+                inside the span rather than after it: it belongs to the word it
+                exclaims, so it takes the band's colour and weight with it. */}
+            <span className={`font-extrabold ${RISK_WORD[level]}`}>{label}!</span>
+          </h1>
 
-            <p className="mt-5 max-w-[520px] text-base leading-[23px] text-ink-soft">
+          <div className="order-2 mx-auto mt-9 w-full max-w-[333px] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0">
+            {/* Only the phone labels the arc. On a desktop it sits beside a headline
+                that has just named the score, close enough to need no caption; on a
+                phone the headline is a screen-width block above it and the arc reads
+                as an unlabelled dial without this. */}
+            <p className="text-center text-base leading-6 text-ink-soft sm:hidden">
+              Your Likeness Health Score
+              <sup className="align-[3px] text-[0.45em]">SM</sup>
+            </p>
+            <div className="mx-auto mt-6 w-[209px] lg:mt-0 lg:w-[191px]">
+              <ScoreGauge score={score.live} level={level} band={score.band} />
+            </div>
+            <div className="mt-5 lg:mt-9">
+              <ScoreScale />
+            </div>
+          </div>
+
+          <div className="order-3 mt-[41px] lg:col-start-1 lg:row-start-2 lg:mt-5">
+            <p className="text-center text-[14px] leading-[1.5] text-ink-report sm:text-left sm:text-base sm:leading-[23px] sm:text-ink-soft lg:max-w-[520px]">
               A Likeness Health Score of{" "}
-              <strong className="font-bold">{score.live}</strong> indicates that you
-              are at a {label} risk for likeness theft and misuse online.{" "}
-              <strong className="font-bold">{cohort}%</strong> of the people similar
-              to you have experienced likeness theft.
+              {/* The two figures are marked up as the emphasis they are, but the
+                  phone export sets this sentence — risk word and numbers alike — at
+                  a flat 400, so the weight only lands from `sm` up. On a 403px
+                  measure a bolded number mid-sentence reads as a second headline
+                  under the one already above it. */}
+              <strong className="font-normal sm:font-bold">{score.live}</strong>{" "}
+              indicates that you are at a {label} risk for likeness theft and misuse
+              online.{" "}
+              <strong className="font-normal sm:font-bold">{cohort}%</strong> of the
+              people similar to you have experienced likeness theft.
             </p>
 
             {/* The ceiling, which is not cosmetic: a fresh account cannot reach 100
@@ -125,21 +177,12 @@ export function ScoreResult({
                 thing from 62 out of 100. Saying so is what stops the number reading
                 as a worse result than it is. */}
             {score.current_ceiling < score.maximum_ceiling ? (
-              <p className="mt-4 max-w-[520px] text-sm leading-5 text-ink-muted">
+              <p className="mt-4 text-center text-sm leading-5 text-ink-muted sm:text-left lg:max-w-[520px]">
                 You&apos;re at {score.live} of a possible {score.current_ceiling}{" "}
                 today — your ceiling rises to {score.maximum_ceiling} after{" "}
                 {score.breakdown.escrow.next_milestone_days ?? 90} days of monitoring.
               </p>
             ) : null}
-          </div>
-
-          <div className="w-full max-w-[333px] shrink-0">
-            <div className="mx-auto w-[191px]">
-              <ScoreGauge score={score.live} level={level} band={score.band} />
-            </div>
-            <div className="mt-9">
-              <ScoreScale />
-            </div>
           </div>
         </section>
 
@@ -148,15 +191,15 @@ export function ScoreResult({
             is what to do" from the two explanatory cards below. */}
         <DownloadPrompt
           handoff={handoff}
-          className="mt-14 gap-y-8 rounded-3xl bg-gradient-to-r from-[#F7F3F0] to-[#EFE8E4] px-6 py-10 sm:gap-10 sm:px-8 lg:mt-[62px] lg:gap-10"
+          className={`mt-7 rounded-3xl px-5 pt-5 pb-[25px] sm:gap-10 sm:px-8 sm:py-10 lg:mt-[62px] lg:gap-10 ${WARM_CARD}`}
         >
-          <p className="max-w-[510px] text-2xl leading-9 font-medium text-ink">
+          <p className="text-[16px] leading-6 font-semibold text-[#1F2937] sm:max-w-[510px] sm:text-2xl sm:leading-9 sm:font-medium sm:text-ink">
             Download the ImageShield app for our full set of recommendations on how
             you can improve your score and keep your likeness safe online.
           </p>
         </DownloadPrompt>
 
-        <div className="mt-9 flex flex-col gap-10">
+        <div className="mt-6 flex flex-col gap-9 sm:mt-9 sm:gap-10">
           <InsightCard
             heading="The primary risk factors that determined your initial score"
             rows={factorRows}
@@ -171,21 +214,23 @@ export function ScoreResult({
         <DownloadPrompt
           handoff={handoff}
           compact
-          className="mt-14 sm:gap-10 lg:mt-[59px] lg:gap-[65px]"
+          className="mt-10 sm:gap-10 lg:mt-[59px] lg:gap-[65px]"
         >
-          <p className="max-w-[610px] text-2xl leading-9 font-medium text-ink">
+          <p className="text-[17px] leading-[22px] font-semibold text-ink sm:max-w-[610px] sm:text-2xl sm:leading-9 sm:font-medium">
             To see your full set of recommendations and your complete Likeness Health
             Report
-            <sup className="align-[7px] text-[0.4em]">SM</sup>, including tips on how
-            you can improve your online safety right away, download the ImageShield
-            app
+            <sup className="align-[5px] text-[0.4em] sm:align-[7px]">SM</sup>,
+            including tips on how you can improve your online safety right away,
+            download the ImageShield app
           </p>
         </DownloadPrompt>
 
         {/* Attached to every score response by the API, and meant to be shown: the
             score is likeness-protection health in MONITORED SOURCES. It is never
             "you're safe", never "across the web", and 100 is never an all-clear. */}
-        <p className="mt-12 text-sm leading-5 text-ink-faint">{record.scopeNote}</p>
+        <p className="mt-10 text-sm leading-5 text-ink-faint sm:mt-12">
+          {record.scopeNote}
+        </p>
       </div>
 
       <AppHandoffSection />

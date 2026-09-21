@@ -301,6 +301,12 @@ export function gaugePoint(degrees: number, radius: number = GAUGE.radius) {
  *
  * The colours are the flat band inks rather than the arc's gradients — a 2px rule
  * painted with a gradient that fades to transparent would simply disappear.
+ *
+ * Ordered worst-first, because the arc above it is: the gauge sweeps 0 at the
+ * bottom-left up through 50 and 80 to 100 at the bottom-right, so a key that ran
+ * the other way would put "Low Risk" under the stretch of arc that means high.
+ * The mobile export is drawn this way round; the desktop one was built from a
+ * legend that ran low-first, which is the reading this corrects.
  */
 export const RISK_LEGEND: ReadonlyArray<{
   level: RiskLevel;
@@ -309,14 +315,14 @@ export const RISK_LEGEND: ReadonlyArray<{
   /** CSS colour, so the rule can be painted without an interpolated class name. */
   colour: string;
 }> = [
-  { level: "low", label: "Low Risk", range: "80–100", colour: "var(--color-risk-low)" },
+  { level: "high", label: "High Risk", range: "0–49", colour: "var(--color-risk-high)" },
   {
     level: "moderate",
     label: "Moderate Risk",
     range: "50–79",
     colour: "var(--color-risk-moderate)",
   },
-  { level: "high", label: "High Risk", range: "0–49", colour: "var(--color-risk-high)" },
+  { level: "low", label: "Low Risk", range: "80–100", colour: "var(--color-risk-low)" },
 ];
 
 /* ── What affected your score ────────────────────────────────────────────────

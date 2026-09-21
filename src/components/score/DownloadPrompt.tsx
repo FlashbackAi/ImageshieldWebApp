@@ -32,42 +32,62 @@ export function DownloadPrompt({
   compact?: boolean;
   className?: string;
 }) {
-  const qr = compact ? 97 : 120;
+  /*
+   * QR sizes, as the drawn side of the white card — the code inside it is that less
+   * the padding either side. The phone export draws 121 and 115 where the desktop
+   * one draws 120 and 97, so the phone's two prompts stay barely 6px apart: at 403px
+   * the compact one is a whole block of its own rather than a strip beside copy, and
+   * shrinking it the way the desktop does would leave it unscannable.
+   */
+  const qr = compact
+    ? "size-[115px] sm:size-[97px]"
+    : "size-[121px] sm:size-[120px]";
 
   /**
-   * Badges are matched on HEIGHT, not width, and the two numbers below are not the
-   * same because the two PNGs are not built the same.
+   * Badges are matched on WIDTH — 167px of visible badge, one size in both prompts
+   * at every breakpoint, which is what the export draws.
    *
-   * `badge-app-store.png` is full-bleed: its black body fills all 1692×546. The
-   * Google Play badge carries Google's own clear-space inside the file — its body is
-   * 632×182 within a 640×192 canvas — so a box of equal height renders it ~5% smaller
-   * than Apple's. Setting both to one width (which is what the export does, and what
-   * this used to do) is worse still: it left the Play badge visibly 12% shorter.
+   * The two classes below are not the same number because the two PNGs are not
+   * built the same. `badge-app-store.png` is full-bleed: its black body fills all
+   * 1692×546, so a 167px box is a 167px badge. The Google Play badge carries
+   * Google's own clear-space inside the file — its body is 632×182 within a 640×192
+   * canvas — so an equal box would draw it 2px narrow. The Play box is therefore
+   * scaled by 640/632, and the two visible badges come out the same width.
    *
-   * So the Play box is scaled by 192/182 to cancel that margin, and the two visible
-   * badges come out the same height. Their widths then differ by ~20px, which is
-   * correct — the two lockups are genuinely different shapes, and matching heights is
-   * what both Apple's and Google's marketing guidelines ask for.
+   * Their heights then differ, 48 against 54, and that is the point: the two lockups
+   * are different shapes (3.47:1 against 3.10:1), so one axis has to give. The
+   * badges sit STACKED here, one above the other, and a stack is read down its
+   * edges — unequal widths leave a ragged right margin that reads as a mistake from
+   * across the room, where unequal heights just read as two different logos. That is
+   * why this matches widths even though Apple's and Google's own marketing
+   * guidelines each ask for equal heights: those guidelines assume the badges sit
+   * side by side on one baseline, which is not this layout.
    */
-  const badgeHeight = compact ? 40 : 53;
-  const playHeight = Math.round((badgeHeight * 192) / 182);
+  const appStore = "w-[167px]";
+  const play = "w-[169px]";
+
   return (
     <div
       className={`flex flex-col items-start gap-8 sm:flex-row sm:items-center sm:justify-between ${className}`}
     >
       {children}
 
-      <div className={`flex shrink-0 items-center ${compact ? "gap-3" : "gap-4"}`}>
+      {/* The phone centres the second prompt's codes on the page — it has no card
+          around it to line them up against, the way the first one does. */}
+      <div
+        className={`flex shrink-0 items-center ${
+          compact ? "mx-auto gap-5 sm:mx-0 sm:gap-3" : "gap-7 sm:gap-4"
+        }`}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element -- see the note above. */}
         <img
           src="/api/handoff/qr"
           alt="QR code to open ImageShield"
-          width={qr}
-          height={qr}
+          width={120}
+          height={120}
           /* `overflow-hidden` so a QR that fails to load shows a broken-image box
              rather than spilling its alt text across the badges beside it. */
-          style={{ width: qr, height: qr }}
-          className="shrink-0 overflow-hidden rounded-2xl bg-canvas p-2.5"
+          className={`shrink-0 overflow-hidden rounded-2xl bg-canvas p-3 sm:p-2.5 ${qr}`}
         />
 
         <div className="flex flex-col gap-3">
@@ -82,7 +102,7 @@ export function DownloadPrompt({
               alt="Get it on Google Play"
               width={640}
               height={192}
-              style={{ height: playHeight, width: "auto" }}
+              className={`h-auto ${play}`}
             />
           </a>
           <a
@@ -96,7 +116,7 @@ export function DownloadPrompt({
               alt="Download on the App Store"
               width={1692}
               height={546}
-              style={{ height: badgeHeight, width: "auto" }}
+              className={`h-auto ${appStore}`}
             />
           </a>
         </div>
