@@ -149,10 +149,10 @@ export function ScoreResult({
               Your Likeness Health Score
               <sup className="align-[3px] text-[0.45em]">SM</sup>
             </p>
-            <div className="mx-auto mt-6 w-[209px] lg:mt-0 lg:w-[191px]">
+            <div className="mx-auto mt-6 w-[191px] lg:mt-0">
               <ScoreGauge score={score.live} level={level} band={score.band} />
             </div>
-            <div className="mt-5 lg:mt-9">
+            <div className="mt-5 sm:mt-8">
               <ScoreScale />
             </div>
           </div>

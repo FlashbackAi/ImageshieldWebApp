@@ -15,11 +15,11 @@ import { RISK_LEGEND } from "@/lib/score";
  * A plain grid rather than a list, because the three rules have to sit on one line
  * across the gauge's width whatever the labels underneath do.
  *
- * The phone export draws the same three columns wider than the arc above them —
- * 100px each on a 403px frame — and sets the range in light grey rather than the
- * desktop's bold ink, so the label is what the eye lands on and the numbers read as
- * the footnote they are. Both are mobile-only: the desktop measurements beside them
- * are the ones taken off the desktop export.
+ * The type is one treatment at every width — the gauge above it is specified in px
+ * rather than in ems, so it is drawn at one size too, and a scale that changed under
+ * a fixed arc would only look like a mistake. The phone keeps its own MEASURE: the
+ * export draws the three columns 100px each on a 403px frame, narrower than the
+ * 333px the desktop gives them.
  */
 export function ScoreScale() {
   return (
@@ -31,13 +31,15 @@ export function ScoreScale() {
               generated — the scanner only sees whole class names. */}
           <div
             aria-hidden
-            className="h-[3px] w-full rounded-full sm:h-0.5"
+            className="h-[3px] w-full rounded-full sm:h-1"
             style={{ backgroundColor: band.colour }}
           />
-          <p className="mt-[7px] text-center text-[13px] leading-4 text-ink-soft sm:mt-3.5 sm:text-ink-muted">
+          <p className="mt-1 text-center text-[12px] leading-5 font-medium text-ink-muted sm:mt-2">
             {band.label}
           </p>
-          <p className="mt-2 text-center text-[13px] leading-4 text-ink-faint sm:mt-1.5 sm:text-sm sm:font-bold sm:text-ink">
+          {/* 4px, which puts 24px between the two cap heights — the export's own
+              figure, and the same on both sides of the breakpoint. */}
+          <p className="mt-1 text-center text-[12px] leading-5 font-bold text-ink-report">
             {band.range}
           </p>
         </div>

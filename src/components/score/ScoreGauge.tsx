@@ -30,16 +30,24 @@ import {
  * — they sit directly *under* the arc's tips, inside the outer radius. One formula
  * can't produce both, so these are points.
  *
+ * Read off `result_gauge.svg`, which draws the gauge at 189.8px across a 331px
+ * frame: each box's centre and baseline, less the arc's own centre, over that
+ * scale. Worth knowing before "tidying" them — the four are NOT symmetric, and
+ * deliberately so. 0 and 100 mirror each other on their OUTER edges (±113 units),
+ * not their centres, so the three-digit 100 sits 10 units nearer the middle than
+ * the single-digit 0 does. Centring them as a pair is what pushed 100 out far
+ * enough to touch the arc's right tip.
+ *
  * The "High Risk" / "Low Risk" captions that used to sit under 0 and 100 are gone:
  * the LHS Results V1 export moves that key out of the drawing and into the printed
  * scale below the whole gauge, where it can name all three bands and their ranges
  * rather than only the two ends. See `ScoreScale`.
  */
 const TICKS: ReadonlyArray<{ value: string; x: number; y: number }> = [
-  { value: "0", x: -118, y: 85 },
-  { value: "50", x: -127, y: -129.5 },
-  { value: "80", x: 127, y: -129.5 },
-  { value: "100", x: 118, y: 78 },
+  { value: "0", x: -107.1, y: 86.6 },
+  { value: "50", x: -130.4, y: -117.3 },
+  { value: "80", x: 128.3, y: -118.2 },
+  { value: "100", x: 97, y: 81 },
 ];
 
 /**
@@ -193,18 +201,26 @@ export function ScoreGauge({
           drawn at its full 300px; the arc has since been laid out beside the headline
           at two thirds that size, and a numeral that scaled with it would have come
           out too small to read as the screen's headline number. */}
-      <text x="0" y="31" textAnchor="middle" className="fill-ink text-[110px] font-bold">
+      <text
+        x="0"
+        y="31"
+        textAnchor="middle"
+        className="fill-ink-report text-[110px] font-bold"
+      >
         {value}
       </text>
 
-      {/* 20 units, i.e. ~13px at the drawn width — same reasoning as the numeral. */}
+      {/* 18.85 units, which is 12px at the drawn width — the same arithmetic as the
+          numeral above, and the reason the gauge is pinned to one width: both sizes
+          are specified in px, and a viewBox unit only means a fixed number of px
+          while the svg is a fixed number of px wide. */}
       {TICKS.map((tick) => (
         <text
           key={tick.value}
           x={tick.x}
           y={tick.y}
           textAnchor="middle"
-          className="fill-ink-muted text-[20px]"
+          className="fill-ink-muted text-[18.85px] font-bold"
         >
           {tick.value}
         </text>
