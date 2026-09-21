@@ -3,55 +3,63 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { STEP_PATHS } from "@/lib/funnel";
 import { HERO_NAV } from "@/lib/site-nav";
 import { Close, Menu } from "./icons";
 
 /**
- * V3's floating glass bar, over the landing hero only.
+ * Concept 1's bar, over the landing hero only.
  *
- * Measured off the 1449-wide design: 20px down, 35px in from either edge, 79px tall
- * with a 16px radius, filled `ink-soft` at 20% over a 10px backdrop blur. Inside,
- * the logo is 24px from the left edge and the link row ends 32px from the right,
- * 32px between links. (The bar sat at 38/32 until the design squared it up to 35 on
- * both sides, which is what makes it 1379 wide at the design width.)
+ * Measured off the 1440-wide design: a full-bleed 96px row with a 1px `ink-soft`
+ * rule under it, the logo 40px in from the left at its native 178×40, the five
+ * links set 16px in `ink-onnight` with 35px between them, then the two pills the
+ * bar ends with — a 212×50 outline and a 154×48 solid white — 24px apart, the
+ * second ending 53px from the right edge.
  *
- * The 35px is held against the viewport at every width, not against a 1449 container:
- * capping it there turned the bar into a centred pill with ~260px of gutter on a
- * 1900-wide window, and pinned it 260px away from the headline the design sets 49px
- * to its right. `HeroSection`'s copy block holds its own 84px the same way, so the
- * two insets keep the design's relationship at any width.
+ * The bar has no fill of its own. It is a 10px backdrop blur and nothing else, so
+ * what shows through it is the top of the photograph behind — which at that height
+ * is near enough black that the rule, not a panel edge, is what separates the two.
+ * That only works over a photograph: every funnel screen is a near-white canvas,
+ * where white on clear glass is unreadable, so those keep the solid V1 bar.
  *
- * The 390-wide frame draws the same bar smaller — 18px down, 20px in, 61px tall, the
- * logo at 29px — and holds the same 24px left inset. It draws no links and no
- * disclosure at all, just the wordmark; the button below is ours, since dropping the
- * six links on a phone would leave the page with no navigation whatsoever.
+ * The insets are held against the viewport rather than a centred 1440 container.
+ * Capping them there would turn the bar into a centred strip with gutters on a
+ * wider monitor and pull the logo away from the headline underneath it, which
+ * `HeroSection` also holds against the viewport for the same reason.
  *
- * This is deliberately not `SiteHeader`. The glass reads as glass because there's a
- * photograph behind it — every funnel screen is a near-white canvas, where white on
- * a 20% scrim is unreadable, so those keep the solid V1 bar.
- *
- * Six 16px links plus the logo need ~750px, so they only collapse behind a
- * disclosure under `lg` (the design only specifies desktop).
+ * Logo, five 16px links and the two pills need 1149px of the 1440 the design gives
+ * them, so the run collapses behind a disclosure under `xl` rather than `lg`: at
+ * 1024 the links overlap the wordmark and "How It Works" breaks onto two lines. The
+ * bar takes its full 96px height at the same breakpoint, so the 305px the hero
+ * below it holds to the headline is measured from the same place the design does. The pills go into the
+ * disclosure with them rather than staying in the row: they are the two most
+ * important destinations on the page, and shrinking them to fit beside a hamburger
+ * is what would make them look optional.
  */
 export function HeroNav() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="absolute inset-x-0 top-0 z-20 pt-[18px] lg:pt-5">
-      <div className="px-5 lg:px-[35px]">
-        <div className="flex h-[61px] items-center justify-between rounded-2xl bg-ink-soft/20 pr-2 pl-6 backdrop-blur-[10px] lg:h-[79px] lg:pr-8">
-          <Link href="/" aria-label="ImageShield home" className="shrink-0">
-            <Image
-              src="/media/logo-wordmark.svg"
-              alt="ImageShield"
-              width={178}
-              height={40}
-              priority
-              className="h-[29px] w-auto lg:h-10"
-            />
-          </Link>
+    <header className="relative z-20 border-b border-ink-soft backdrop-blur-[10px]">
+      <div className="flex h-16 items-center justify-between pr-4 pl-6 sm:pl-10 xl:h-24 xl:pr-[53px]">
+        <Link href="/" aria-label="ImageShield home" className="shrink-0">
+          <Image
+            src="/media/logo-wordmark.svg"
+            alt="ImageShield"
+            width={178}
+            height={40}
+            priority
+            className="h-8 w-auto xl:h-10"
+          />
+        </Link>
 
-          <nav aria-label="Main" className="hidden lg:block">
+        {/* Links and pills are one group, not two children of the row's
+            `justify-between`: the design hangs the whole run off the right edge —
+            the last pill 53px in, the links ending 34px before the first one — and
+            an even distribution would instead park the links halfway between the
+            logo and the pills, 40px left of where the design puts them. */}
+        <div className="hidden items-center gap-[34px] xl:flex">
+          <nav aria-label="Main">
             <ul className="flex items-center gap-8">
               {HERO_NAV.map((item) => (
                 <li key={item.label}>
@@ -66,43 +74,74 @@ export function HeroNav() {
             </ul>
           </nav>
 
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-            aria-controls="hero-nav"
-            aria-label={open ? "Close menu" : "Open menu"}
-            className="flex size-tap items-center justify-center text-ink-onnight lg:hidden"
-          >
-            {open ? <Close className="size-6" /> : <Menu className="size-6" />}
-          </button>
+          <div className="flex items-center gap-6">
+            <Link
+              href={STEP_PATHS.quiz}
+              className="flex h-[50px] w-[212px] items-center justify-center rounded-full border border-white text-base text-white transition-colors hover:bg-white/10"
+            >
+              Likeness Health Score
+            </Link>
+            <a
+              href="#download"
+              className="flex h-12 w-[154px] items-center justify-center rounded-full bg-white text-base text-ink transition-opacity hover:opacity-90"
+            >
+              Download app
+            </a>
+          </div>
         </div>
 
-        {open ? (
-          <nav
-            id="hero-nav"
-            aria-label="Main"
-            /* The bar's own 20% fill is a highlight over the photo; a panel of links
-               has to be a surface, so the disclosure takes the same material at a
-               weight the copy can be read against. */
-            className="mt-2 rounded-2xl bg-ink-soft/80 py-2 backdrop-blur-[10px] lg:hidden"
-          >
-            <ul className="flex flex-col px-4">
-              {HERO_NAV.map((item) => (
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    onClick={() => setOpen(false)}
-                    className="flex min-h-tap items-center text-base text-ink-onnight"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        ) : null}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls="hero-nav"
+          aria-label={open ? "Close menu" : "Open menu"}
+          className="flex size-tap items-center justify-center text-ink-onnight xl:hidden"
+        >
+          {open ? <Close className="size-6" /> : <Menu className="size-6" />}
+        </button>
       </div>
+
+      {open ? (
+        <nav
+          id="hero-nav"
+          aria-label="Main"
+          /* The bar itself is clear glass over a photograph. A panel of links has to
+             be a surface, so the disclosure takes the ground the hero sits on. */
+          className="bg-night/95 pb-6 backdrop-blur-[10px] xl:hidden"
+        >
+          <ul className="flex flex-col px-6">
+            {HERO_NAV.map((item) => (
+              <li key={item.label}>
+                <Link
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className="flex min-h-tap items-center text-base text-ink-onnight"
+                >
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-4 flex flex-col gap-3 px-6">
+            <Link
+              href={STEP_PATHS.quiz}
+              onClick={() => setOpen(false)}
+              className="flex h-[50px] items-center justify-center rounded-full border border-white text-base text-white"
+            >
+              Likeness Health Score
+            </Link>
+            <a
+              href="#download"
+              onClick={() => setOpen(false)}
+              className="flex h-12 items-center justify-center rounded-full bg-white text-base text-ink"
+            >
+              Download app
+            </a>
+          </div>
+        </nav>
+      ) : null}
     </header>
   );
 }

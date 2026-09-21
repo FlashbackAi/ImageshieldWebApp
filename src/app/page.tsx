@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { DownloadSection } from "@/components/landing/DownloadSection";
 import { HeroSection } from "@/components/landing/HeroSection";
-import { ProtectsSection } from "@/components/landing/ProtectsSection";
+import { HowItWorks } from "@/components/landing/HowItWorks";
+import { ScoreBanner } from "@/components/landing/ScoreBanner";
 
 export const metadata: Metadata = {
   title: "ImageShield — What is your Likeness Health Score℠?",
@@ -10,15 +11,25 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // The funnel is white-on-brand; the landing page is a black canvas.
+  // The funnel is white-on-brand; the landing page opens on a black canvas.
   themeColor: "#000000",
 };
 
+/**
+ * Concept 1, top to bottom: the pitch over the photograph, the quiz ask on coral,
+ * the three steps, and what is left of the old footer strip.
+ *
+ * `font-sans` rather than the `font-site` every other marketing page carries. The
+ * design is drawn in Plus Jakarta Sans — the app's own face, matched here against
+ * the export glyph by glyph — where the V1 pages are drawn in Inter, so the two
+ * faces live side by side until those are redrawn.
+ */
 export default function LandingPage() {
   return (
-    <main className="bg-night font-site">
+    <main className="bg-night font-sans">
       <HeroSection />
-      <ProtectsSection />
+      <ScoreBanner />
+      <HowItWorks />
       <DownloadSection />
     </main>
   );

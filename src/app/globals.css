@@ -93,6 +93,16 @@
   --color-ink-onnight-dim: #cccccc;
 
   /*
+   * Concept 1's home page. Three grounds the rest of the site has no use for: the
+   * quiz band's coral, the card the hero floats over the photograph, and the barely
+   * grey the How It Works band sits on — the design draws that last one as
+   * `surface-legacy` at 30% over white, which is this flat value once composited.
+   */
+  --color-coral: #ff7274;
+  --color-card-night: #222222;
+  --color-canvas-mist: #fbfcfd;
+
+  /*
    * Pages carried over from the old imageshield.com — the FAQ so far. That site is
    * a light one, and it paints every piece of copy on it in a single violet rather
    * than the funnel's neutral ink ramp. Its page ground is `canvas-tint` to the

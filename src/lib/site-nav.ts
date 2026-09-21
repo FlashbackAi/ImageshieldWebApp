@@ -37,15 +37,16 @@ export const SITE_NAV: ReadonlyArray<{
 ];
 
 /**
- * The same nav as V3 draws it over the landing hero.
+ * The same nav as Concept 1 draws it over the landing hero.
  *
- * Kept apart from `SITE_NAV` rather than derived from it: V3 drops the quiz link —
- * the hero's own CTA is the way in — and sets every remaining label in one ink, so
- * there is no emphasis flag and no service mark to carry. The funnel screens are
- * still on the V1 bar and still need all seven, so the two lists genuinely differ.
+ * Kept apart from `SITE_NAV` rather than derived from it: the two links this bar
+ * drops — Download and the quiz — are not missing, they have been promoted to the
+ * pair of pills the bar ends with, so a derived list would have to subtract them
+ * again. Every label here is set in one ink, so there is no emphasis flag and no
+ * service mark to carry. The funnel screens are still on the V1 bar and still need
+ * all seven, so the two lists genuinely differ.
  */
 export const HERO_NAV: ReadonlyArray<{ label: string; href: string }> = [
-  { label: "Download", href: "#download" },
   { label: "FAQ", href: "/faq" },
   { label: "How It Works", href: "#how-it-works" },
   { label: "Pricing", href: "#pricing" },
