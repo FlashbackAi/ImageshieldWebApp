@@ -7,7 +7,7 @@ import { nextPath, STEP_PATHS } from "@/lib/funnel";
 export const metadata: Metadata = {
   title: "ImageShield — Likeness Health Quiz",
   description:
-    "Our free online assessment will determine your risk of likeness theft online. It only takes a few minutes.",
+    "Our free online assessment will determine your risk of likeness theft online. It only takes a minute and we’ll have recommendations for you to protect yourself.",
 };
 
 /**
@@ -20,8 +20,13 @@ export const metadata: Metadata = {
  *
  * Measured off the 1920×1280 design: a 536px column centred on the page, sitting
  * 199px below the 65px header, everything inside it flush left. That puts the badge
- * at y=264, the heading's cap line at 398, and the button at 612 — the export's own
- * numbers, which the column reproduces to the pixel at `lg` and up.
+ * at y=264 and the heading's cap line at 398, both the export's own numbers.
+ *
+ * The button no longer lands on the export's y=612. The copy since changed — the
+ * heading lost "proprietary" and so a line, the paragraph gained one — and 36px off
+ * the first against 24px onto the second leaves it 12px higher, at 600. It is left
+ * to flow there rather than padded back onto a number the export measured for
+ * sentences that are no longer on the page.
  */
 export default function QuizIntroPage() {
   // `quiz` is never the last step, so the fallback here is unreachable — it exists
@@ -49,8 +54,8 @@ export default function QuizIntroPage() {
           {/* No `text-balance`: the design runs this to the full 536px measure, and
               balancing pulls the last line up into a narrower, off-design block. */}
           <h1 className="mt-7 text-2xl leading-9 font-bold text-ink-soft">
-            Our proprietary Likeness Health Quiz will determine your risk of
-            likeness theft and abuse.
+            Our Likeness Health Quiz will determine your risk of likeness theft
+            and abuse.
           </h1>
 
           {/* 16/24, not 16/20: the export steps these two lines 24px apart, and the
@@ -61,16 +66,17 @@ export default function QuizIntroPage() {
               apart. */}
           <p className="mt-[18px] text-base leading-6 text-black/80">
             Our free online assessment will determine your risk of likeness theft
-            online. It only takes a few minutes.
+            online. It only takes a minute and we&rsquo;ll have recommendations for
+            you to protect yourself.
           </p>
 
           {/* Nothing to record yet, so this is a plain navigation rather than the
               funnel's <Button> — and a pill, which <Button> is not. */}
           <Link
             href={next}
-            className="mt-[50px] flex h-14 w-full items-center justify-center rounded-full bg-brand text-base font-semibold text-ink-inverse transition-colors hover:bg-cta"
+            className="mt-[50px] flex h-14 w-full items-center justify-center rounded-[36px] bg-brand text-base leading-6 font-semibold text-ink-inverse transition-colors hover:bg-cta"
           >
-            Continue
+            Let&rsquo;s begin
           </Link>
         </div>
       </div>
