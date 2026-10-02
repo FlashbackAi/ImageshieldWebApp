@@ -44,7 +44,25 @@ export function linkLabel(url: string): string {
 }
 
 /**
+ * The pitch to whoever receives the share — printed on the poster under the score
+ * and closing the caption, so the picture and the text ask the same question. One
+ * copy of it, so the two can't drift.
+ *
+ * Two paragraphs, each held as the lines the poster breaks it into: neither fits
+ * the canvas on one line, and centred text left to wrap strands a word or two on a
+ * line of its own. The caption joins each paragraph's lines back into a sentence.
+ */
+export const SHARE_PITCH = [
+  ["Are you a victim of image abuse?", "1 in 5 Americans are."],
+  ["Get your free Likeness Health Score", "and find out."],
+] as const;
+
+/**
  * The caption that rides along with the picture.
+ *
+ * The score sentence is the app's; the close is this site's own pitch rather than
+ * the app's "What's your score?", with the link on a line of its own after it — the
+ * same order the poster prints them in.
  *
  * "Healthy" is reserved for a low-risk band: calling a moderate or high score
  * healthy would be exactly the false reassurance the app's wording avoids.
@@ -56,6 +74,6 @@ export function shareCaption(score: { live: number; band: string }): string {
   return (
     `I have a ${healthy}Likeness Health Score℠ of ${score.live} out of 100.  ` +
     `This means that my risk of likeness abuse is ${risk}.\n\n` +
-    `What's your score?  Take the 1-minute Likeness Health Quiz on ImageShield at ${SHARE_URL}.`
+    `${SHARE_PITCH.map((lines) => lines.join(" ")).join("\n\n")}\n${SHARE_URL}`
   );
 }

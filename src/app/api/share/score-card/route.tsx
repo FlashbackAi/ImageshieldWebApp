@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { bandLabel, riskLevelOf } from "@/lib/score";
 import { loadScore } from "@/lib/score-record";
-import { linkLabel, POSTER_SIZE, SHARE_URL } from "@/lib/score-share";
+import { linkLabel, POSTER_SIZE, SHARE_PITCH, SHARE_URL } from "@/lib/score-share";
 import { CENTER, FRAME, HEADROOM, posterGaugeSvg, TICKS } from "./gauge";
 
 /**
@@ -121,7 +121,10 @@ export async function GET() {
               paddingBottom: px(24.5),
             }}
           >
-            {/* The font has no ℠ glyph, so it is set the way the page sets it. */}
+            {/* The font has no ℠ glyph, so it is set the way the page sets it.
+                "My", not the app card's "Your": this is the sharer's own post, read
+                by someone else, so it speaks in the first person like the line
+                under the card does. */}
             <div
               style={{
                 display: "flex",
@@ -132,7 +135,7 @@ export async function GET() {
                 color: "#212121",
               }}
             >
-              Your Likeness Health Score
+              My Likeness Health Score
               <span style={{ fontSize: px(7), lineHeight: `${px(10)}px`, marginLeft: px(1) }}>
                 SM
               </span>
@@ -245,9 +248,13 @@ export async function GET() {
           <div style={{ display: "flex", fontSize: px(22), lineHeight: `${px(30)}px`, fontWeight: 700 }}>
             {`is ${score.live} out of 100.`}
           </div>
+          {/* The pitch to whoever sees the post, above the link it points to — the
+              caption's own closing words, broken where `SHARE_PITCH` breaks them. */}
           <div
             style={{
               display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
               marginTop: px(14),
               fontSize: px(15),
               lineHeight: `${px(22)}px`,
@@ -255,7 +262,23 @@ export async function GET() {
               color: "rgba(255,255,255,0.78)",
             }}
           >
-            Curious what yours is? Take the free quiz:
+            {SHARE_PITCH.map((lines, i) => (
+              <div
+                key={lines[0]}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  marginTop: i === 0 ? 0 : px(10),
+                }}
+              >
+                {lines.map((line) => (
+                  <div key={line} style={{ display: "flex" }}>
+                    {line}
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
           <div
             style={{
