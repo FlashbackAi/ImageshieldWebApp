@@ -339,7 +339,7 @@ export function DetailsForm() {
             sending ? "shimmer" : "disabled:opacity-40"
           }`}
         >
-          {sending ? "Sending code…" : "Review my score"}
+          {sending ? "Sending code…" : "Get my score"}
         </button>
       </div>
     </form>

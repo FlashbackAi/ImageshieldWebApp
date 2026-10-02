@@ -1,5 +1,6 @@
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { AppHandoffSection } from "@/components/score/AppHandoffSection";
+import { WARM_CARD } from "@/components/score/ScoreResult";
 import { Skeleton } from "@/components/Skeleton";
 
 /**
@@ -102,12 +103,12 @@ export default function ScoreLoading() {
           </div>
         </section>
 
-        {/* The warm download card. Its ground is a gradient rather than a flat
-            fill and it needs no data to draw, so it is painted for real and
-            only its contents are stood in for — the card is most of what the
+        {/* The two warm download cards. Their ground is a gradient rather than a
+            flat fill and needs no data to draw, so it is painted for real and
+            only the contents are stood in for — the card is most of what the
             eye registers here, and a grey rectangle in its place would be a
             bigger change than the copy it holds. */}
-        <div className="mt-7 flex flex-col items-start gap-8 rounded-3xl bg-[linear-gradient(180deg,rgba(246,182,11,0.11)_0%,rgba(239,101,34,0.287)_100%),linear-gradient(90deg,#F7F3F0_0%,#EFE8E4_100%)] px-5 pt-5 pb-[25px] sm:flex-row sm:items-center sm:justify-between sm:gap-10 sm:bg-[linear-gradient(90deg,#F7F3F0_0%,#EFE8E4_100%)] sm:px-8 sm:py-10 lg:mt-[62px]">
+        <div className={`mt-7 flex flex-col items-start gap-8 md:flex-row md:items-center md:justify-between sm:gap-10 lg:mt-[62px] ${WARM_CARD}`}>
           <div className="flex w-full flex-col gap-3 sm:max-w-[510px]">
             <Skeleton className="h-5 w-full rounded sm:h-7" />
             <Skeleton className="h-5 w-full rounded sm:h-7" />
@@ -123,19 +124,21 @@ export default function ScoreLoading() {
           <InsightCardSkeleton rows={3} />
         </div>
 
-        <div className="mt-10 flex flex-col items-start gap-8 sm:flex-row sm:items-center sm:justify-between sm:gap-10 lg:mt-[59px] lg:gap-[65px]">
-          <div className="flex w-full flex-col gap-3 sm:max-w-[610px]">
-            <Skeleton className="h-5 w-full rounded sm:h-7" />
-            <Skeleton className="h-5 w-full rounded sm:h-7" />
-            <Skeleton className="h-5 w-[80%] rounded sm:h-7" />
+        <div className={`mt-10 lg:mt-[59px] ${WARM_CARD}`}>
+          <div className="flex flex-col items-start gap-8 md:flex-row md:items-center md:justify-between sm:gap-10">
+            <div className="flex w-full flex-col gap-3 sm:max-w-[610px]">
+              <Skeleton className="h-5 w-full rounded sm:h-7" />
+              <Skeleton className="h-5 w-full rounded sm:h-7" />
+              <Skeleton className="h-5 w-[80%] rounded sm:h-7" />
+            </div>
+            <DownloadCodes />
           </div>
-          <DownloadCodes compact />
-        </div>
 
-        {/* The scope note. */}
-        <div className="mt-10 flex flex-col gap-2 sm:mt-12">
-          <Skeleton className="h-4 w-full rounded" />
-          <Skeleton className="h-4 w-[65%] rounded" />
+          {/* The scope note, which sits inside this card. */}
+          <div className="mt-8 flex flex-col gap-2 sm:mt-10">
+            <Skeleton className="h-4 w-full rounded" />
+            <Skeleton className="h-4 w-[65%] rounded" />
+          </div>
         </div>
       </div>
 
@@ -151,28 +154,20 @@ export default function ScoreLoading() {
 }
 
 /**
- * The QR-and-badges block, which `DownloadPrompt` draws twice at two sizes.
+ * The QR-and-badges block, which `DownloadPrompt` draws in both warm cards.
  *
- * The sizes are that component's, down to why the phone's compact code is
- * barely smaller than the full one — see the note there.
+ * The sizes are that component's — see the notes there.
  */
-function DownloadCodes({ compact = false }: { compact?: boolean }) {
+function DownloadCodes() {
   return (
-    <div
-      className={`flex shrink-0 items-center ${
-        compact ? "mx-auto gap-5 sm:mx-0 sm:gap-3" : "gap-7 sm:gap-4"
-      }`}
-    >
-      <Skeleton
-        className={`shrink-0 rounded-2xl ${
-          compact ? "size-[115px] sm:size-[97px]" : "size-[121px] sm:size-[120px]"
-        }`}
-      />
-      <div className="flex flex-col gap-3">
+    <div className="flex w-full max-w-[318px] shrink-0 items-center gap-[8.8%] sm:w-auto sm:max-w-none sm:gap-4">
+      <Skeleton className="aspect-square w-[38%] shrink-0 rounded-2xl sm:size-[120px]" />
+      <div className="flex w-[53.2%] flex-col gap-3 sm:w-[169px]">
         {/* The two badges are matched on width and differ in height, which is
-            the export's own arrangement and not a slip. */}
-        <Skeleton className="h-[54px] w-[169px] rounded-[7px]" />
-        <Skeleton className="h-[48px] w-[167px] rounded-[7px]" />
+            the export's own arrangement and not a slip. Heights by aspect ratio
+            (640×192 and 1692×546), so they scale with the row on a narrow phone. */}
+        <Skeleton className="aspect-[640/192] w-full rounded-[7px]" />
+        <Skeleton className="aspect-[1692/546] w-[98.8%] rounded-[7px]" />
       </div>
     </div>
   );

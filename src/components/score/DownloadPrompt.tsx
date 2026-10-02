@@ -5,10 +5,10 @@ import { HandoffQr } from "./HandoffQr";
 /**
  * A line of copy, a QR code and the two store badges.
  *
- * The export uses this twice — once inside the warm card under the score, once on
- * the page between the recommendations and the app section — with different copy and
- * different surroundings but the same right-hand block, so that block lives here
- * rather than being written out twice and drifting.
+ * The page uses this twice, each in the same warm card — once under the score, once
+ * between the recommendations and the app section — with different copy but the same
+ * right-hand block, so that block lives here rather than being written out twice and
+ * drifting.
  *
  * The QR comes from `/api/handoff/qr`, a route handler that builds it from the
  * session cookie. It is deliberately NOT `next/image`: the code is generated per
@@ -19,43 +19,25 @@ import { HandoffQr } from "./HandoffQr";
 export function DownloadPrompt({
   handoff,
   children,
-  compact = false,
   className = "",
 }: {
   handoff: Handoff;
   /** The copy to the left of the codes. */
   children: React.ReactNode;
-  /**
-   * The smaller codes the export uses for the second of the two prompts.
-   *
-   * Not a style preference: that block's copy is a long sentence set at the same
-   * 25px as the first, and it only fits the four lines it is drawn on if the codes
-   * beside it give back the ~60px this takes off them.
-   */
-  compact?: boolean;
   className?: string;
 }) {
-  /*
-   * QR sizes, as the drawn side of the white card — the code inside it is that less
-   * the padding either side. The phone export draws 121 and 115 where the desktop
-   * one draws 120 and 97, so the phone's two prompts stay barely 6px apart: at 403px
-   * the compact one is a whole block of its own rather than a strip beside copy, and
-   * shrinking it the way the desktop does would leave it unscannable.
-   */
-  const qr = compact
-    ? "size-[115px] sm:size-[97px]"
-    : "size-[121px] sm:size-[120px]";
-
   /**
-   * Badges are matched on WIDTH — 167px of visible badge, one size in both prompts
-   * at every breakpoint, which is what the export draws.
+   * Badges are matched on WIDTH — 167px of visible badge, one size in both prompts,
+   * which is what the export draws.
    *
    * The two classes below are not the same number because the two PNGs are not
    * built the same. `badge-app-store.png` is full-bleed: its black body fills all
    * 1692×546, so a 167px box is a 167px badge. The Google Play badge carries
    * Google's own clear-space inside the file — its body is 632×182 within a 640×192
    * canvas — so an equal box would draw it 2px narrow. The Play box is therefore
-   * scaled by 640/632, and the two visible badges come out the same width.
+   * scaled by 640/632, and the two visible badges come out the same width. Both
+   * are written relative to their 169px column (167/169 = 98.8%) so they keep that
+   * ratio when the column shrinks on a narrow phone — see the row below.
    *
    * Their heights then differ, 48 against 54, and that is the point: the two lockups
    * are different shapes (3.47:1 against 3.10:1), so one axis has to give. The
@@ -66,25 +48,28 @@ export function DownloadPrompt({
    * guidelines each ask for equal heights: those guidelines assume the badges sit
    * side by side on one baseline, which is not this layout.
    */
-  const appStore = "w-[167px]";
-  const play = "w-[169px]";
+  const appStore = "w-[98.8%]";
+  const play = "w-full";
 
+  /* Side by side from `md`, not `sm`: inside the warm card at 640–767px the codes'
+     305px leave the copy a ~200px column, and the badges ran into the card's edge. */
   return (
     <div
-      className={`flex flex-col items-start gap-8 sm:flex-row sm:items-center sm:justify-between ${className}`}
+      className={`flex flex-col items-start gap-8 md:flex-row md:items-center md:justify-between ${className}`}
     >
       {children}
 
-      {/* The phone centres the second prompt's codes on the page — it has no card
-          around it to line them up against, the way the first one does. */}
-      <div
-        className={`flex shrink-0 items-center ${
-          compact ? "mx-auto gap-5 sm:mx-0 sm:gap-3" : "gap-7 sm:gap-4"
-        }`}
-      >
-        <HandoffQr className={qr} padding="p-3 sm:p-2.5" />
+      {/* On a phone the row is the export's 318px — a 121px code, a 28px gap, the
+          169px badges — written as shares of that width, so below the ~400px screen
+          it was drawn for, where the card's inside is narrower than 318, the whole
+          row scales down as one instead of running out of the card and making the
+          page scroll sideways. From `sm` it takes its fixed desktop sizes. */}
+      <div className="flex w-full max-w-[318px] shrink-0 items-center gap-[8.8%] sm:w-auto sm:max-w-none sm:gap-4">
+        {/* Sized as the drawn side of the white card — the code inside it is that
+            less the padding either side. */}
+        <HandoffQr className="aspect-square w-[38%] sm:size-[120px]" padding="p-3 sm:p-2.5" />
 
-        <div className="flex flex-col gap-3">
+        <div className="flex w-[53.2%] flex-col gap-3 sm:w-[169px]">
           <a
             href={handoff.playStoreUrl}
             target="_blank"

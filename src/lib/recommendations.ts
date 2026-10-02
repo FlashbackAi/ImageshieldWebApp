@@ -1,5 +1,5 @@
 /**
- * "Immediate Recommendations" — the same two for every visitor, for now.
+ * "General recommendations" — the same two for every visitor, for now.
  *
  * The backend is building the real thing: recommendations picked from what the
  * person actually answered and what monitoring has found. Until that lands there is

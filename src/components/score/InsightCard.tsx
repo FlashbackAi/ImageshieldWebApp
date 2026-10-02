@@ -49,7 +49,7 @@ export function InsightCard({
     <section className="rounded-2xl bg-[#F4F2FA] px-5 pt-8 pb-8 sm:rounded-3xl sm:bg-gradient-to-b sm:from-[#F4F2FA] sm:via-[#F4F2FA] sm:via-95% sm:to-transparent sm:px-[92px] sm:pt-11 sm:pb-12">
       {/* The two cards' headings are the same size, weight and leading, and differ
           in the desktop export by a hair of tracking and an imperceptible shade —
-          -1.2px and #212121 on "Immediate Recommendations" against 0 and #1A1C1D on
+          -1.2px and #212121 on "General recommendations" against 0 and #1A1C1D on
           the risk factors. Both are reproduced rather than averaged, but see the
           note on `emphasis`: this is the likelier of the two to be drift. */}
       <h2

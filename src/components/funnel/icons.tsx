@@ -179,7 +179,7 @@ export function Wand({ className }: IconProps) {
   );
 }
 
-/* ── Immediate Recommendations ────────────────────────────────────────────────
+/* ── General recommendations ─────────────────────────────────────────────────
  *
  * Both are drawn as outlines rather than solids, which is what the results export
  * shows and why `Glyph` needed an even-odd rule: each is a ring — one contour inside
@@ -215,5 +215,34 @@ export function Lock({ className }: IconProps) {
       height={28}
       d="M52 35.5H48.5V33C48.5 31.2761 47.8152 29.6228 46.5962 28.4038C45.3772 27.1848 43.7239 26.5 42 26.5C40.2761 26.5 38.6228 27.1848 37.4038 28.4038C36.1848 29.6228 35.5 31.2761 35.5 33V35.5H32C31.337 35.5 30.7011 35.7634 30.2322 36.2322C29.7634 36.7011 29.5 37.337 29.5 38V52C29.5 52.663 29.7634 53.2989 30.2322 53.7678C30.7011 54.2366 31.337 54.5 32 54.5H52C52.663 54.5 53.2989 54.2366 53.7678 53.7678C54.2366 53.2989 54.5 52.663 54.5 52V38C54.5 37.337 54.2366 36.7011 53.7678 36.2322C53.2989 35.7634 52.663 35.5 52 35.5ZM38.5 33C38.5 32.0717 38.8687 31.1815 39.5251 30.5251C40.1815 29.8687 41.0717 29.5 42 29.5C42.9283 29.5 43.8185 29.8687 44.4749 30.5251C45.1313 31.1815 45.5 32.0717 45.5 33V35.5H38.5V33ZM51.5 51.5H32.5V38.5H51.5V51.5ZM44 45C44 45.3956 43.8827 45.7822 43.6629 46.1111C43.4432 46.44 43.1308 46.6964 42.7654 46.8478C42.3999 46.9991 41.9978 47.0387 41.6098 46.9616C41.2219 46.8844 40.8655 46.6939 40.5858 46.4142C40.3061 46.1345 40.1156 45.7781 40.0384 45.3902C39.9613 45.0022 40.0009 44.6001 40.1522 44.2346C40.3036 43.8692 40.56 43.5568 40.8889 43.3371C41.2178 43.1173 41.6044 43 42 43C42.5304 43 43.0391 43.2107 43.4142 43.5858C43.7893 43.9609 44 44.4696 44 45Z"
     />
+  );
+}
+
+/* ── Result screen actions ─────────────────────────────────────────────────── */
+
+/**
+ * Share — a box with an arrow leaving it. Not traced from an export: it is Lucide's
+ * `share`, which is what the app's score card draws (`lucide-react-native`), so the
+ * same action looks the same on both. An outline on a 24 grid, hence a stroke here
+ * where every other glyph in this file is a fill.
+ */
+export function Share({ className }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={20}
+      height={20}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={className}
+    >
+      <path d="M12 2v13" />
+      <path d="m16 6-4-4-4 4" />
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+    </svg>
   );
 }

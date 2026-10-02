@@ -15,6 +15,7 @@ import { DownloadPrompt } from "./DownloadPrompt";
 import { InsightCard, type InsightRow } from "./InsightCard";
 import { ScoreGauge } from "./ScoreGauge";
 import { ScoreScale } from "./ScoreScale";
+import { ShareScoreButton } from "./ShareScoreButton";
 
 /**
  * The accent colour on the risk word, per band.
@@ -39,16 +40,18 @@ const FACTOR_ICONS: Record<FactorIcon, (props: { className?: string }) => React.
 };
 
 /**
- * The warm card's ground, on a phone.
+ * The warm card both download prompts sit in — its shape, padding and ground.
+ * Exported so the loading skeleton paints the same card rather than a copy of it.
  *
- * Two gradients, as the mobile export draws them: the desktop's horizontal cream
- * wash with a vertical amber→red overlay laid over it. That overlay runs from the
- * card's top edge to y=1151 on a card that ends at y=964, so only its first 61% is
- * ever seen — the end stop here is that gradient sampled at 61%, not its own final
- * stop, which would land a far redder card than the export shows.
+ * The ground on a phone is two gradients, as the mobile export draws them: the
+ * desktop's horizontal cream wash with a vertical amber→red overlay laid over it.
+ * That overlay runs from the card's top edge to y=1151 on a card that ends at y=964,
+ * so only its first 61% is ever seen — the end stop here is that gradient sampled at
+ * 61%, not its own final stop, which would land a far redder card than the export
+ * shows.
  */
-const WARM_CARD =
-  "bg-[linear-gradient(180deg,rgba(246,182,11,0.11)_0%,rgba(239,101,34,0.287)_100%),linear-gradient(90deg,#F7F3F0_0%,#EFE8E4_100%)] sm:bg-[linear-gradient(90deg,#F7F3F0_0%,#EFE8E4_100%)]";
+export const WARM_CARD =
+  "rounded-3xl px-5 pt-5 pb-[25px] sm:px-8 sm:py-10 bg-[linear-gradient(180deg,rgba(246,182,11,0.11)_0%,rgba(239,101,34,0.287)_100%),linear-gradient(90deg,#F7F3F0_0%,#EFE8E4_100%)] sm:bg-[linear-gradient(90deg,#F7F3F0_0%,#EFE8E4_100%)]";
 
 /**
  * The result screen, laid out from the LHS Results V1 export.
@@ -101,12 +104,6 @@ export function ScoreResult({
     }),
   );
 
-  /* The score is a health score — 100 is safest — so the share of comparable people
-     who have been hit reads as its complement. The API supplies no real cohort
-     figure; the export hardcodes "50%" beside a score of 49, which is what this
-     reproduces. Swap it the moment there is a number to swap it for. */
-  const cohort = 100 - score.live;
-
   return (
     /* Plus Jakarta Sans, not the marketing site's Inter. This screen is the last
        one of the funnel rather than the first one of the site, and it is what a
@@ -145,12 +142,30 @@ export function ScoreResult({
                 that has just named the score, close enough to need no caption; on a
                 phone the headline is a screen-width block above it and the arc reads
                 as an unlabelled dial without this. */}
-            <p className="text-center text-base leading-6 text-ink-soft sm:hidden">
-              Your Likeness Health Score
-              <sup className="align-[3px] text-[0.45em]">SM</sup>
-            </p>
-            <div className="mx-auto mt-6 w-[191px] lg:mt-0">
+            {/* The share button sits beside the caption, as it sits beside the title
+                on the app's score card. A three-column grid keeps the caption itself
+                centred, and the button's negative margin keeps its 44px target from
+                making the row any taller than the caption's own line. */}
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center sm:hidden">
+              <p className="col-start-2 text-center text-base leading-6 text-ink-soft">
+                Your Likeness Health Score
+                <sup className="align-[3px] text-[0.45em]">SM</sup>
+              </p>
+              <ShareScoreButton
+                score={score.live}
+                band={score.band}
+                className="-my-2.5 justify-self-start"
+              />
+            </div>
+            <div className="relative mx-auto mt-6 w-[191px] lg:mt-0">
               <ScoreGauge score={score.live} level={level} band={score.band} />
+              {/* With no caption above the arc on a wider screen, the button sits
+                  off the gauge's top-right corner instead — in the column's spare
+                  width beside the arc, positioned so it moves nothing. Both
+                  instances share one poster fetch. */}
+              <div className="absolute top-0 left-full ml-3 max-sm:hidden">
+                <ShareScoreButton score={score.live} band={score.band} />
+              </div>
             </div>
             <div className="mt-5 sm:mt-8">
               <ScoreScale />
@@ -160,30 +175,16 @@ export function ScoreResult({
           <div className="order-3 mt-[41px] lg:col-start-1 lg:row-start-2 lg:mt-5">
             <p className="text-center text-[14px] leading-[1.5] text-ink-report sm:text-left sm:text-[15px] lg:max-w-[520px]">
               A Likeness Health Score of{" "}
-              {/* The two figures are marked up as the emphasis they are, and the
-                  weight follows the export on each side: the desktop one sets these
-                  spans at 700 against the sentence's 400, and the phone one sets the
-                  whole sentence — risk word and figures alike — flat at 400. On a
+              {/* The figure is marked up as the emphasis it is, and the weight
+                  follows the export on each side: the desktop one sets this span at
+                  700 against the sentence's 400, and the phone one sets the whole
+                  sentence — risk word and figure alike — flat at 400. On a
                   403px measure a bolded number mid-sentence reads as a second
                   headline under the one already above it. */}
               <strong className="font-normal sm:font-bold">{score.live}</strong>{" "}
               indicates that you are at a {label} risk for likeness theft and misuse
-              online.{" "}
-              <strong className="font-normal sm:font-bold">{cohort}%</strong> of the
-              people similar to you have experienced likeness theft.
+              online.
             </p>
-
-            {/* The ceiling, which is not cosmetic: a fresh account cannot reach 100
-                yet, so a score of 62 out of a ceiling of 70 is a very different
-                thing from 62 out of 100. Saying so is what stops the number reading
-                as a worse result than it is. */}
-            {score.current_ceiling < score.maximum_ceiling ? (
-              <p className="mt-4 text-center text-sm leading-5 text-ink-muted sm:text-left lg:max-w-[520px]">
-                You&apos;re at {score.live} of a possible {score.current_ceiling}{" "}
-                today — your ceiling rises to {score.maximum_ceiling} after{" "}
-                {score.breakdown.escrow.next_milestone_days ?? 90} days of monitoring.
-              </p>
-            ) : null}
           </div>
         </section>
 
@@ -192,11 +193,15 @@ export function ScoreResult({
             is what to do" from the two explanatory cards below. */}
         <DownloadPrompt
           handoff={handoff}
-          className={`mt-7 rounded-3xl px-5 pt-5 pb-[25px] sm:gap-10 sm:px-8 sm:py-10 lg:mt-[62px] lg:gap-10 ${WARM_CARD}`}
+          className={`mt-7 sm:gap-10 lg:mt-[62px] ${WARM_CARD}`}
         >
           <p className="text-[16px] leading-6 font-semibold text-ink-warm sm:max-w-[510px] sm:text-2xl sm:leading-9">
-            Download the ImageShield app for our full set of recommendations on how
-            you can improve your score and keep your likeness safe online.
+            Download the ImageShield app for{" "}
+            {/* Sized in em so it stays a step up at both breakpoints, and leading-none
+                so the larger word doesn't push its line apart from the others. */}
+            <em className="text-[1.15em] leading-none font-extrabold">personalized</em>{" "}
+            recommendations on how you can improve your score and keep your likeness
+            safe online.
           </p>
         </DownloadPrompt>
 
@@ -206,32 +211,35 @@ export function ScoreResult({
             rows={factorRows}
           />
           <InsightCard
-            heading="Immediate Recommendations"
+            heading="General recommendations"
             rows={recommendations}
             variant="recommendations"
           />
         </div>
 
-        <DownloadPrompt
-          handoff={handoff}
-          compact
-          className="mt-10 sm:gap-10 lg:mt-[59px] lg:gap-[65px]"
-        >
-          <p className="text-[17px] leading-[22px] font-semibold text-ink-deep sm:max-w-[610px] sm:text-2xl sm:leading-9 sm:tracking-[-0.04em]">
-            To see your full set of recommendations and your complete Likeness Health
-            Report
-            <sup className="align-[5px] text-[0.4em] sm:align-[7px]">SM</sup>,
-            including tips on how you can improve your online safety right away,
-            download the ImageShield app
-          </p>
-        </DownloadPrompt>
+        <div className={`mt-10 lg:mt-[59px] ${WARM_CARD}`}>
+          <DownloadPrompt handoff={handoff} className="sm:gap-10">
+            <p className="text-[17px] leading-[22px] font-semibold text-ink-deep sm:max-w-[610px] sm:text-2xl sm:leading-9 sm:tracking-[-0.04em]">
+              To see your{" "}
+              {/* Set as the warm card above sets the same word. */}
+              <em className="text-[1.15em] leading-none font-extrabold">personalized</em>{" "}
+              recommendations and your complete Likeness Health Report
+              <sup className="align-[5px] text-[0.4em] sm:align-[7px]">SM</sup>,
+              including tips on how you can improve your online safety right away,
+              download the ImageShield app
+            </p>
+          </DownloadPrompt>
 
-        {/* Attached to every score response by the API, and meant to be shown: the
-            score is likeness-protection health in MONITORED SOURCES. It is never
-            "you're safe", never "across the web", and 100 is never an all-clear. */}
-        <p className="mt-10 text-sm leading-5 text-ink-faint sm:mt-12">
-          {record.scopeNote}
-        </p>
+          {/* Attached to every score response by the API, and meant to be shown: the
+              score is likeness-protection health in MONITORED SOURCES. It is never
+              "you're safe", never "across the web", and 100 is never an all-clear.
+              `ink-soft` rather than the page's `ink-faint`: on the phone the card
+              fades to orange at its foot, where #888 drops to ~2.3:1 and #666 to
+              ~3.7:1 — both under AA for 14px text. #333 holds ~8:1. */}
+          <p className="mt-8 text-sm leading-5 text-ink-soft sm:mt-10">
+            {record.scopeNote}
+          </p>
+        </div>
       </div>
 
       <AppHandoffSection />
