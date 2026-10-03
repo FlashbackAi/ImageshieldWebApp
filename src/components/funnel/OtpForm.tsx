@@ -354,7 +354,7 @@ export function OtpForm() {
             busy ? "shimmer" : "disabled:opacity-40"
           }`}
         >
-          {busy ? "Verifying…" : "Review my score"}
+          {busy ? "Verifying…" : "Get my score"}
         </button>
       </div>
     </div>
